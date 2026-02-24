@@ -1,0 +1,32 @@
+{
+  "name": "plan-viewer",
+  "displayName": "Plan Viewer",
+  "description": "Interactive plan tracker for PLAN.json files",
+  "version": "0.1.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "planViewer.open",
+        "title": "Plan: Open Tracker"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "planViewer.editor",
+        "displayName": "Plan Viewer",
+        "selector": [
+          { "filenamePattern": "*.plan.json" },
+          { "filenamePattern": "PLAN.json" }
+        ],
+        "priority": "default"
+      }
+    ]
+  }
+}

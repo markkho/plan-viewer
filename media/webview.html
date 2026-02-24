@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; font-src https://cdnjs.cloudflare.com;">
+<title>Plan Tracker</title>
+<link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" disabled>
+<link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" disabled>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/dialog/dialog.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/keymap/vim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/dialog/dialog.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/markdown/markdown.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script>
+  // VSCode injects vscode-dark/vscode-light on <body>; pick the right hljs theme
+  new MutationObserver(() => {
+    const dark = document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast');
+    document.getElementById('hljs-dark').disabled = !dark;
+    document.getElementById('hljs-light').disabled = dark;
+  }).observe(document.documentElement, {attributes: true, subtree: true, attributeFilter: ['class']});
+  // Also run once after DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    const dark = document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast');
+    document.getElementById('hljs-dark').disabled = !dark;
+    document.getElementById('hljs-light').disabled = dark;
+  });
+</script>
+<style>
+  :root {
+    --bg: #fff; --fg: #1a1a2e; --card: #f8f9fa; --border: #dee2e6;
+    --green: #28a745; --yellow: #ffc107; --blue: #007bff; --gray: #6c757d; --red: #dc3545;
+    --green-bg: #d4edda; --yellow-bg: #fff3cd; --blue-bg: #cce5ff; --gray-bg: #e9ecef;
+    --bar-bg: #e9ecef; --hover: #f1f3f5; --detail-bg: #f0f2f5; --code-bg: #e8ecf0;
+  }
+  body.vscode-dark, body.vscode-high-contrast {
+    --bg: #1a1a2e; --fg: #e0e0e0; --card: #16213e; --border: #2a2a4a;
+    --green: #4caf50; --yellow: #ffca28; --blue: #42a5f5; --gray: #78909c; --red: #ef5350;
+    --green-bg: #1b3d1f; --yellow-bg: #3d3200; --blue-bg: #0d2a4a; --gray-bg: #2a2a3a;
+    --bar-bg: #2a2a4a; --hover: #1e2a4a; --detail-bg: #12182e; --code-bg: #0e1525;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--fg); max-width: 960px; margin: 0 auto; padding: 24px; line-height: 1.5; }
+  h1 { font-size: 1.6em; margin-bottom: 8px; }
+  .subtitle { color: var(--gray); margin-bottom: 24px; font-size: 0.9em; }
+  .motivation { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 24px; font-size: 0.9em; line-height: 1.6; }
+  .motivation summary { cursor: pointer; font-weight: 600; }
+  .motivation .content { margin-top: 12px; }
+  .next-step { background: var(--blue-bg); border: 1px solid var(--blue); border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; }
+  .next-step .label { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); font-weight: 600; }
+  .next-step .step-name { font-weight: 600; margin-top: 2px; }
+  .next-step .step-note { font-size: 0.85em; color: var(--gray); }
+  .overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .overview-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: background 0.15s; }
+  .overview-card:hover { background: var(--hover); }
+  .overview-card .phase-name { font-size: 0.85em; font-weight: 600; margin-bottom: 4px; }
+  .overview-card .progress-text { font-size: 0.75em; color: var(--gray); margin-bottom: 6px; }
+  .progress-bar { height: 6px; background: var(--bar-bg); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .node { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+  .node-header { padding: 10px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; position: sticky; background: var(--card); border-radius: 8px 8px 0 0; box-shadow: 0 1px 0 var(--border); }
+  .depth-0 > .node-header { top: 0; z-index: 14; }
+  .depth-1 > .node-header { top: 37px; z-index: 13; }
+  .depth-2 > .node-header { top: 74px; z-index: 12; }
+  .depth-3 > .node-header { top: 111px; z-index: 11; }
+  .depth-4 > .node-header { top: 148px; z-index: 10; }
+  .node-header:hover { background: var(--hover); }
+  .node-header .arrow { font-size: 0.7em; transition: transform 0.2s; color: var(--gray); min-width: 12px; }
+  .node-header.open .arrow { transform: rotate(90deg); }
+  .node-header .node-id { font-size: 0.78em; color: var(--gray); font-family: monospace; min-width: 36px; }
+  .node-header .node-name { font-weight: 500; flex: 1; font-size: 0.9em; }
+  .node-header .node-note { font-size: 0.75em; color: var(--gray); font-style: italic; max-width: 220px; text-align: right; }
+  .node-header .badge { font-size: 0.72em; padding: 2px 8px; border-radius: 4px; font-weight: 600; cursor: pointer; user-select: none; border: none; transition: opacity 0.15s; white-space: nowrap; }
+  .node-header .badge:hover { opacity: 0.8; }
+  .badge.complete { background: var(--green-bg); color: var(--green); }
+  .badge.in_progress { background: var(--yellow-bg); color: var(--yellow); }
+  .badge.pending { background: var(--gray-bg); color: var(--gray); }
+  .badge.deferred { background: var(--gray-bg); color: var(--gray); opacity: 0.6; font-style: italic; }
+  .node-body { padding: 0 14px 10px; }
+  .node-desc { font-size: 0.83em; color: var(--gray); line-height: 1.6; padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+  .node-details { padding: 8px 12px; margin: 4px 0 8px 0; background: var(--detail-bg); border-radius: 6px; font-size: 0.83em; line-height: 1.6; }
+  .node-desc p, .node-details p { margin-bottom: 8px; }
+  .node-desc p:last-child, .node-details p:last-child { margin-bottom: 0; }
+  .node-desc strong, .node-details strong { font-weight: 600; }
+  .node-desc code, .node-details code { background: var(--code-bg); padding: 1px 4px; border-radius: 3px; font-size: 0.92em; }
+  .node-desc pre, .node-details pre { background: var(--code-bg); padding: 8px 10px; border-radius: 4px; overflow-x: auto; margin: 6px 0; font-size: 0.88em; line-height: 1.4; }
+  .node-desc ul, .node-desc ol, .node-details ul, .node-details ol { margin: 4px 0 8px 20px; }
+  .node-desc li, .node-details li { margin-bottom: 2px; }
+  .node-desc h1, .node-desc h2, .node-desc h3, .node-details h1, .node-details h2, .node-details h3 { margin: 12px 0 6px; font-weight: 600; }
+  .node-desc h1, .node-details h1 { font-size: 1.2em; }
+  .node-desc h2, .node-details h2 { font-size: 1.1em; }
+  .node-desc h3, .node-details h3 { font-size: 1.0em; }
+  .node-desc blockquote, .node-details blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--gray); margin: 6px 0; }
+  .node-desc a, .node-details a { color: var(--blue); text-decoration: none; }
+  .node-desc a:hover, .node-details a:hover { text-decoration: underline; }
+  .node-children { padding-left: 16px; }
+  .depth-0 > .node-header .node-name { font-weight: 600; font-size: 0.95em; }
+  .toolbar { display: flex; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; font-size: 0.85em; font-weight: 500; transition: background 0.15s; }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .btn.primary:hover { opacity: 0.9; }
+  .saved-msg { font-size: 0.85em; color: var(--green); align-self: center; opacity: 0; transition: opacity 0.3s; }
+  .saved-msg.show { opacity: 1; }
+  #loading { text-align: center; padding: 48px; color: var(--gray); }
+  /* Editing */
+  .node-header .node-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
+  .node-header:hover .node-actions { opacity: 1; }
+  .node-actions button { background: none; border: none; cursor: pointer; font-size: 0.8em; padding: 2px 5px; border-radius: 3px; color: var(--gray); line-height: 1; }
+  .node-actions button:hover { background: var(--border); }
+  .node-actions .del-btn:hover { color: var(--red); }
+  .edit-input { width: 100%; padding: 4px 8px; font: inherit; font-size: 0.9em; background: var(--bg); color: var(--fg); border: 2px solid var(--blue); border-radius: 4px; outline: none; }
+  /* CodeMirror overrides */
+  .CodeMirror { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82em; background: var(--bg); color: var(--fg); border: 2px solid var(--blue); border-radius: 4px; min-height: 120px; height: auto; line-height: 1.5; }
+  .CodeMirror-scroll { min-height: 120px; }
+  .CodeMirror-cursor { border-left-color: var(--fg); }
+  .CodeMirror .cm-fat-cursor .CodeMirror-cursor, .cm-fat-cursor .CodeMirror-cursor { background: var(--fg); opacity: 0.7; }
+  .CodeMirror-selected { background: var(--blue-bg) !important; }
+  .CodeMirror-focused .CodeMirror-selected { background: var(--blue-bg) !important; }
+  .CodeMirror-gutters { background: var(--card); border-right-color: var(--border); }
+  .CodeMirror-linenumber { color: var(--gray); }
+  .CodeMirror-dialog { background: var(--card); color: var(--fg); border-bottom: 1px solid var(--border); padding: 2px 6px; }
+  .CodeMirror-dialog input { color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; font-family: monospace; }
+  .add-child-btn { display: block; width: 100%; padding: 6px; margin-top: 4px; background: none; border: 2px dashed var(--border); border-radius: 6px; color: var(--gray); cursor: pointer; font-size: 0.8em; transition: all 0.15s; }
+  .add-child-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+  .dirty-indicator { font-size: 0.85em; color: var(--yellow); align-self: center; }
+  .focusable.focused { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 6px; }
+  /* Settings */
+  .settings-toggle { position: fixed; top: 12px; right: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1em; color: var(--gray); z-index: 100; }
+  .settings-toggle:hover { background: var(--hover); color: var(--fg); }
+  .settings-panel { position: fixed; top: 50px; right: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; z-index: 100; min-width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; }
+  .settings-panel.open { display: block; }
+  .settings-panel h3 { font-size: 0.85em; margin-bottom: 12px; font-weight: 600; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 0.82em; }
+  .settings-row label { color: var(--gray); }
+  .settings-row input[type="range"] { width: 100px; accent-color: var(--blue); }
+  .settings-row .val { font-family: monospace; font-size: 0.9em; min-width: 32px; text-align: right; }
+  .vim-help { position: fixed; bottom: 16px; right: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.75em; color: var(--gray); font-family: monospace; line-height: 1.8; opacity: 0.7; }
+  .vim-help kbd { background: var(--border); padding: 1px 5px; border-radius: 3px; font-size: 0.95em; }
+  /* Confirm dialog */
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
+  .confirm-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; min-width: 280px; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+  .confirm-box .confirm-msg { font-size: 0.9em; margin-bottom: 16px; line-height: 1.5; }
+  .confirm-box .confirm-btns { display: flex; justify-content: flex-end; gap: 8px; }
+  .confirm-box .confirm-btn { padding: 6px 16px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; font-size: 0.85em; font-weight: 500; transition: background 0.15s; }
+  .confirm-box .confirm-btn:hover { background: var(--hover); }
+  .confirm-box .confirm-btn.danger { background: var(--red); color: #fff; border-color: var(--red); }
+  .confirm-box .confirm-btn.danger:hover { opacity: 0.9; }
+</style>
+</head>
+<body>
+
+<div class="settings-toggle" id="settings-toggle" title="Settings">&#9881;</div>
+<div class="settings-panel" id="settings-panel">
+  <h3>Settings</h3>
+  <div class="settings-row">
+    <label>Font size</label>
+    <input type="range" id="font-size-slider" min="10" max="22" step="1" value="15">
+    <span class="val" id="font-size-val">15</span>
+  </div>
+  <div class="settings-row">
+    <label>Vim hints</label>
+    <input type="checkbox" id="vim-hints-toggle">
+  </div>
+</div>
+
+<div id="loading">Loading plan data...</div>
+<div id="app" style="display:none">
+  <h1 id="page-title"></h1>
+  <p class="subtitle">Double-click text to edit. Click badges to cycle status.</p>
+  <div id="motivation-el"></div>
+  <div id="next-step"></div>
+  <div id="overview" class="overview"></div>
+  <div id="tree"></div>
+  <div class="toolbar">
+    <button class="btn primary" id="save-btn">Save</button>
+    <button class="btn" id="revert-btn">Revert</button>
+    <span class="saved-msg" id="saved-msg">Saved!</span>
+    <span class="dirty-indicator" id="dirty-msg"></span>
+    <span style="flex:1"></span>
+    <button class="btn" id="expand-all">Expand all</button>
+    <button class="btn" id="collapse-all">Collapse all</button>
+  </div>
+</div>
+
+<script>
+// --- VSCode API ---
+const vscode = acquireVsCodeApi();
+
+// --- Settings ---
+(function initSettings() {
+  const state = vscode.getState() || {};
+  const fontSize = state.fontSize || 15;
+  document.body.style.fontSize = fontSize + 'px';
+  const slider = document.getElementById('font-size-slider');
+  const valEl = document.getElementById('font-size-val');
+  slider.value = fontSize;
+  valEl.textContent = fontSize;
+
+  slider.addEventListener('input', () => {
+    const sz = parseInt(slider.value, 10);
+    valEl.textContent = sz;
+    document.body.style.fontSize = sz + 'px';
+    vscode.setState({ ...vscode.getState(), fontSize: sz });
+  });
+
+  // Vim hints toggle
+  const hintsToggle = document.getElementById('vim-hints-toggle');
+  const showHints = state.vimHints === true; // default off
+  hintsToggle.checked = showHints;
+  // Apply after vim-help element is created (deferred)
+  setTimeout(() => {
+    const help = document.getElementById('vim-help');
+    if (help) help.style.display = showHints ? '' : 'none';
+  }, 0);
+  hintsToggle.addEventListener('change', () => {
+    const on = hintsToggle.checked;
+    const help = document.getElementById('vim-help');
+    if (help) help.style.display = on ? '' : 'none';
+    vscode.setState({ ...vscode.getState(), vimHints: on });
+  });
+
+  document.getElementById('settings-toggle').addEventListener('click', () => {
+    document.getElementById('settings-panel').classList.toggle('open');
+  });
+
+  // Close settings when clicking elsewhere
+  document.addEventListener('click', e => {
+    const panel = document.getElementById('settings-panel');
+    const toggle = document.getElementById('settings-toggle');
+    if (panel.classList.contains('open') && !panel.contains(e.target) && !toggle.contains(e.target)) {
+      panel.classList.remove('open');
+    }
+  });
+})();
+
+const STATUS_ORDER = ['pending', 'in_progress', 'complete'];
+const STATUS_LABELS = {complete: 'Complete', in_progress: 'In Progress', pending: 'Pending', deferred: 'Deferred'};
+const STATUS_COLORS = {complete: 'var(--green)', in_progress: 'var(--yellow)', pending: 'var(--gray)', deferred: 'var(--gray)'};
+
+let data = null;
+let dirty = false;
+let editing = false;
+let vimFocusKey = null;
+const openNodes = new Set();
+const openDetailsSet = new Set();
+
+function txt(v) { return Array.isArray(v) ? v.join('\n') : (v || ''); }
+
+function unwrap(v) {
+  if (!Array.isArray(v)) return v || '';
+  const out = []; let buf = [];
+  function flush() {
+    if (!buf.length) return;
+    if (buf.every(l => !/^[-*] |^\d+\. |^\||^```|^#/.test(l))) out.push(buf.join(' '));
+    else buf.forEach(l => out.push(l));
+    buf = [];
+  }
+  for (const l of v) { if (l === '') { flush(); out.push(''); } else buf.push(l); }
+  flush();
+  return out.join('\n');
+}
+
+function markDirty() {
+  dirty = true;
+  document.getElementById('dirty-msg').textContent = 'Unsaved changes';
+}
+
+function nodeAt(path) {
+  let node = data;
+  for (const i of path) node = node.children[i];
+  return node;
+}
+
+// --- Data from extension via postMessage ---
+window.addEventListener('message', e => {
+  const msg = e.data;
+  if (msg.type === 'load') {
+    const firstLoad = !data;
+    data = msg.data;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = '';
+    if (firstLoad) data.children.forEach((c,i) => autoOpen(c, [i]));
+    if (!dirty && !editing) render();
+  } else if (msg.type === 'saved') {
+    dirty = false;
+    document.getElementById('dirty-msg').textContent = '';
+    const el = document.getElementById('saved-msg');
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2000);
+  }
+});
+
+// --- Status derivation ---
+function isLeaf(node) { return !node.children || node.children.length === 0; }
+
+function deriveStatus(node) {
+  if (isLeaf(node)) return node.status || 'pending';
+  const kids = node.children.filter(c => deriveStatus(c) !== 'deferred');
+  if (kids.length === 0) return 'pending';
+  if (kids.every(c => deriveStatus(c) === 'complete')) return 'complete';
+  if (kids.some(c => deriveStatus(c) === 'in_progress')) return 'in_progress';
+  if (kids.some(c => deriveStatus(c) === 'complete')) return 'in_progress';
+  return 'pending';
+}
+
+function countProgress(node) {
+  if (isLeaf(node)) {
+    const s = node.status || 'pending';
+    return s === 'deferred' ? {done:0, total:0} : {done: s === 'complete' ? 1 : 0, total: 1};
+  }
+  let done = 0, total = 0;
+  for (const c of node.children) { const p = countProgress(c); done += p.done; total += p.total; }
+  return {done, total};
+}
+
+function nodeId(path) { return path.map(i => i + 1).join('.'); }
+function pathKey(path) { return path.join('-'); }
+
+function findNext(node, path) {
+  if (isLeaf(node)) return node.status === 'in_progress' ? {node, path, id: nodeId(path)} : null;
+  for (let i = 0; i < node.children.length; i++) { const r = findNext(node.children[i], [...path, i]); if (r) return r; }
+  return null;
+}
+function findNextPending(node, path) {
+  if (isLeaf(node)) return node.status === 'pending' ? {node, path, id: nodeId(path)} : null;
+  for (let i = 0; i < node.children.length; i++) { const r = findNextPending(node.children[i], [...path, i]); if (r) return r; }
+  return null;
+}
+function getNextStep() {
+  if (!data) return null;
+  for (let i = 0; i < data.children.length; i++) { const r = findNext(data.children[i], [i]); if (r) return r; }
+  for (let i = 0; i < data.children.length; i++) { const r = findNextPending(data.children[i], [i]); if (r) return r; }
+  return null;
+}
+
+function autoOpen(node, path) {
+  if (deriveStatus(node) === 'in_progress' && !isLeaf(node)) openNodes.add(pathKey(path));
+  if (node.children) node.children.forEach((c,i) => autoOpen(c, [...path, i]));
+}
+
+function cycleLeafStatus(node) {
+  if (!isLeaf(node) || node.status === 'deferred') return;
+  const idx = STATUS_ORDER.indexOf(node.status || 'pending');
+  node.status = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+  markDirty();
+  render();
+}
+
+// --- CodeMirror vim setup (global, runs once) ---
+(function setupVim() {
+  CodeMirror.Vim.map('jk', '<Esc>', 'insert');
+  CodeMirror.Vim.defineEx('write', 'w', function(cm) { if (cm._save) cm._save(); });
+  CodeMirror.Vim.defineEx('quit', 'q', function(cm) { if (cm._save) cm._save(); });
+  CodeMirror.Vim.defineEx('wq', 'wq', function(cm) { if (cm._save) cm._save(); });
+})();
+
+// --- Inline editing ---
+function startEdit(el, path, field, multiline, vimNormal) {
+  if (editing) return;
+  editing = true;
+  const node = nodeAt(path);
+  const raw = multiline ? unwrap(node[field] || '') : txt(node[field] || '');
+
+  if (multiline) {
+    const wrapper = document.createElement('div');
+    el.replaceWith(wrapper);
+    const cm = CodeMirror(wrapper, {
+      value: raw,
+      mode: 'markdown',
+      keyMap: 'vim',
+      lineWrapping: true,
+      viewportMargin: Infinity,
+      inputStyle: 'textarea',
+    });
+    const save = () => {
+      if (!editing) return;
+      editing = false;
+      const val = cm.getValue();
+      if (val !== raw) { node[field] = val ? val.split('\n') : undefined; markDirty(); }
+      renderTree(); highlight();
+    };
+    cm._save = save;
+    // Normal mode: Escape/Enter/jk exit the editor
+    let jkPending = false;
+    cm.on('keydown', (instance, event) => {
+      const vim = cm.state.vim;
+      if (!vim || vim.insertMode || vim.visualMode) { jkPending = false; return; }
+      if (event.key === 'Escape' || event.key === 'Enter') {
+        event.preventDefault(); event.stopPropagation();
+        save(); return;
+      }
+      if (event.key === 'j') { jkPending = true; event.preventDefault(); return; }
+      if (event.key === 'k' && jkPending) {
+        jkPending = false; event.preventDefault(); event.stopPropagation();
+        save(); return;
+      }
+      if (jkPending) { jkPending = false; CodeMirror.Vim.handleKey(cm, 'j'); }
+    });
+    cm.on('blur', () => { setTimeout(() => { if (!cm.hasFocus()) save(); }, 150); });
+    // Start in insert mode unless vimNormal
+    if (!vimNormal) CodeMirror.Vim.handleKey(cm, 'i');
+    cm.focus();
+  } else {
+    const input = document.createElement('input');
+    input.className = 'edit-input';
+    input.value = raw;
+    el.replaceWith(input);
+    input.focus();
+    input.select();
+    const save = () => {
+      if (!editing) return;
+      editing = false;
+      const val = input.value.trim();
+      if (val !== raw) { node[field] = val || undefined; markDirty(); }
+      render();
+    };
+    input.addEventListener('blur', save);
+    let jkP = false, jkT = null;
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { save(); return; }
+      if (e.key === 'Escape') { editing = false; render(); return; }
+      // jk macro → Escape
+      if (e.key === 'j') {
+        e.preventDefault();
+        jkP = true;
+        jkT = setTimeout(() => { if (jkP) { jkP = false; document.execCommand('insertText', false, 'j'); } }, 200);
+        return;
+      }
+      if (e.key === 'k' && jkP) {
+        e.preventDefault();
+        jkP = false; clearTimeout(jkT);
+        editing = false; render();
+        return;
+      }
+      if (jkP) { jkP = false; clearTimeout(jkT); document.execCommand('insertText', false, 'j'); }
+    });
+  }
+}
+
+function addChild(path) {
+  const parent = path.length === 0 ? data : nodeAt(path);
+  if (!parent.children) parent.children = [];
+  parent.children.push({name: 'New step', status: 'pending'});
+  const pk = pathKey(path);
+  openNodes.add(pk);
+  markDirty();
+  render();
+}
+
+function showConfirm(msg) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `<div class="confirm-box">
+      <div class="confirm-msg">${msg}</div>
+      <div class="confirm-btns">
+        <button class="confirm-btn cancel">Cancel</button>
+        <button class="confirm-btn danger">Delete</button>
+      </div>
+    </div>`;
+    const cleanup = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    overlay.querySelector('.cancel').addEventListener('click', () => cleanup(false));
+    overlay.querySelector('.danger').addEventListener('click', () => cleanup(true));
+    overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(false); });
+    const onKey = e => { if (e.key === 'Escape') cleanup(false); else if (e.key === 'Enter') cleanup(true); };
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+    overlay.querySelector('.danger').focus();
+  });
+}
+
+async function deleteNode(path) {
+  const node = nodeAt(path);
+  const name = node.name || 'this node';
+  if (!await showConfirm(`Delete <strong>"${name}"</strong>?`)) return;
+  const parentPath = path.slice(0, -1);
+  const idx = path[path.length - 1];
+  const parent = parentPath.length === 0 ? data : nodeAt(parentPath);
+  parent.children.splice(idx, 1);
+  if (parent.children.length === 0 && parent !== data) {
+    delete parent.children;
+    if (!parent.status) parent.status = 'pending';
+  }
+  markDirty();
+  render();
+}
+
+// --- Markdown to HTML (via marked + KaTeX) ---
+function renderMd(text) {
+  if (!text) return '';
+  // Protect code fences and inline code from LaTeX extraction
+  const codes = [];
+  text = text.replace(/```[\s\S]*?```|`[^`\n]+`/g, m => { codes.push(m); return `\x00C${codes.length-1}\x00`; });
+  // Protect LaTeX delimiters from markdown processing
+  const lx = [];
+  text = text.replace(/\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^\$\n]+?\$|\\\([^\)]+?\\\)/g, m => { lx.push(m); return `\x00L${lx.length-1}\x00`; });
+  // Restore code fences before marked processes them
+  text = text.replace(/\x00C(\d+)\x00/g, (_, i) => codes[parseInt(i)]);
+  let html = marked.parse(text, { gfm: true, breaks: false });
+  // Restore LaTeX with HTML escaping
+  html = html.replace(/\x00L(\d+)\x00/g, (_, i) => lx[parseInt(i)].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+  return html;
+}
+function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function highlight() {
+  if (typeof hljs !== 'undefined') {
+    document.querySelectorAll('pre code').forEach(el => { hljs.highlightElement(el); });
+  }
+  if (typeof renderMathInElement !== 'undefined') {
+    document.querySelectorAll('.node-desc, .node-details, .motivation .content').forEach(el => {
+      renderMathInElement(el, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\(', right: '\\)', display: false},
+          {left: '\\[', right: '\\]', display: true},
+        ],
+        throwOnError: false,
+      });
+    });
+  }
+}
+
+// --- Render ---
+function render() {
+  if (!data) return;
+  document.getElementById('page-title').textContent = data.title || 'Plan';
+  renderMotivation();
+  renderNextStep();
+  renderOverview();
+  renderTree();
+  highlight();
+}
+
+function renderMotivation() {
+  const el = document.getElementById('motivation-el');
+  if (!data.motivation) { el.innerHTML = ''; return; }
+  el.innerHTML = `<details class="motivation"><summary>Motivation</summary><div class="content">${renderMd(txt(data.motivation))}</div></details>`;
+}
+
+function renderNextStep() {
+  const el = document.getElementById('next-step');
+  const next = getNextStep();
+  if (!next) {
+    el.innerHTML = '<div class="next-step" style="background:var(--green-bg);border-color:var(--green)"><div class="label" style="color:var(--green)">All done!</div><div class="step-name">All phases complete.</div></div>';
+    return;
+  }
+  const prefix = next.node.status === 'in_progress' ? 'Currently working on' : 'Next up';
+  el.innerHTML = `<div class="next-step">
+    <div class="label">${prefix}</div>
+    <div class="step-name">${next.id} &mdash; ${next.node.name}</div>
+    ${next.node.note ? `<div class="step-note">${next.node.note}</div>` : ''}
+  </div>`;
+}
+
+function renderOverview() {
+  const el = document.getElementById('overview');
+  el.innerHTML = data.children.map((p, i) => {
+    const {done, total} = countProgress(p);
+    const pct = total > 0 ? (done / total * 100) : 0;
+    const color = STATUS_COLORS[deriveStatus(p)];
+    const pk = pathKey([i]);
+    return `<div class="overview-card" onclick="toggleNode('${pk}')">
+      <div class="phase-name">${nodeId([i])}: ${p.short || p.name}</div>
+      <div class="progress-text">${done}/${total}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function toggleNode(pk) {
+  if (openNodes.has(pk)) openNodes.delete(pk); else openNodes.add(pk);
+  renderTree(); highlight();
+}
+function toggleDetails(pk) {
+  if (openDetailsSet.has(pk)) openDetailsSet.delete(pk); else openDetailsSet.add(pk);
+  renderTree(); highlight();
+}
+
+function renderTree() {
+  document.getElementById('tree').innerHTML = data.children.map((c,i) => renderNode(c, [i], 0)).join('');
+  document.getElementById('tree').querySelectorAll('[data-edit]').forEach(el => {
+    el.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      const path = JSON.parse(el.dataset.path);
+      const field = el.dataset.field;
+      const multi = el.dataset.edit === 'multi';
+      startEdit(el, path, field, multi);
+    });
+  });
+  if (vimFocusKey) {
+    const el = document.querySelector(`[data-fkey="${vimFocusKey}"]`);
+    if (el) el.classList.add('focused');
+  }
+}
+
+function renderNode(node, path, depth) {
+  const pk = pathKey(path);
+  const id = nodeId(path);
+  const leaf = isLeaf(node);
+  const status = deriveStatus(node);
+  const isOpen = openNodes.has(pk);
+  const detailOpen = openDetailsSet.has(pk);
+  const {done, total} = countProgress(node);
+  const statusLabel = !leaf && status === 'in_progress' ? `${done}/${total}` : STATUS_LABELS[status];
+  const hasDetails = !!node.details;
+  const hasDesc = !!node.description;
+  const hasChildren = !leaf;
+  const canExpand = hasChildren || hasDetails || hasDesc;
+  const ps = JSON.stringify(path);
+
+  let badgeHtml;
+  if (leaf) {
+    badgeHtml = `<span class="badge ${status}" onclick="event.stopPropagation(); cycleAt([${path}])">${statusLabel}</span>`;
+  } else {
+    badgeHtml = `<span class="badge ${status}">${statusLabel}</span>`;
+  }
+
+  const actions = `<span class="node-actions">
+    <button onclick="event.stopPropagation(); addChild([${path}])" title="Add child">+</button>
+    <button class="del-btn" onclick="event.stopPropagation(); deleteNode([${path}])" title="Delete">&times;</button>
+  </span>`;
+
+  let bodyHtml = '';
+  if (isOpen || (leaf && detailOpen)) {
+    let inner = '';
+    if (hasDesc) inner += `<div class="node-desc focusable" data-edit="multi" data-path='${ps}' data-field="description" data-fkey="c:${pk}:description">${renderMd(txt(node.description))}</div>`;
+    if (detailOpen && hasDetails) inner += `<div class="node-details focusable" data-edit="multi" data-path='${ps}' data-field="details" data-fkey="c:${pk}:details">${renderMd(txt(node.details))}</div>`;
+    if (hasChildren) {
+      inner += `<div class="node-children">${node.children.map((c,i) => renderNode(c, [...path, i], depth+1)).join('')}`;
+      inner += `<button class="add-child-btn" onclick="addChild([${path}])">+ Add step</button></div>`;
+    }
+    if (inner) bodyHtml = `<div class="node-body">${inner}</div>`;
+  }
+
+  const clickAction = hasChildren
+    ? `toggleNode('${pk}')`
+    : hasDetails ? `toggleDetails('${pk}')` : '';
+
+  return `<div class="node depth-${depth}">
+    <div class="node-header focusable ${isOpen || detailOpen ? 'open' : ''}" data-pk="${pk}" data-fkey="h:${pk}" onclick="${clickAction}">
+      ${canExpand ? `<span class="arrow">&#9654;</span>` : `<span class="arrow" style="visibility:hidden">&#9654;</span>`}
+      <span class="node-id">${id}</span>
+      <span class="node-name" data-edit="single" data-path='${ps}' data-field="name">${escHtml(node.name)}</span>
+      <span class="node-note" data-edit="single" data-path='${ps}' data-field="note">${node.note ? escHtml(node.note) : ''}</span>
+      ${actions}
+      ${badgeHtml}
+    </div>
+    ${bodyHtml}
+  </div>`;
+}
+
+function cycleAt(path) { cycleLeafStatus(nodeAt(path)); }
+
+// --- Save (writes to disk via extension) ---
+document.getElementById('save-btn').addEventListener('click', () => {
+  vscode.postMessage({ type: 'save', data });
+});
+
+document.getElementById('revert-btn').addEventListener('click', async () => {
+  if (!dirty) return;
+  if (!await showConfirm('Discard unsaved changes and revert to the last saved version?')) return;
+  dirty = false;
+  editing = false;
+  document.getElementById('dirty-msg').textContent = '';
+  vscode.postMessage({ type: 'revert' });
+});
+
+document.getElementById('expand-all').addEventListener('click', () => {
+  function expandAll(node, path) {
+    const pk = pathKey(path);
+    if (!isLeaf(node)) { openNodes.add(pk); node.children.forEach((c,i) => expandAll(c, [...path, i])); }
+    if (node.details) openDetailsSet.add(pk);
+  }
+  data.children.forEach((c,i) => expandAll(c, [i]));
+  render();
+});
+
+document.getElementById('collapse-all').addEventListener('click', () => {
+  openNodes.clear(); openDetailsSet.clear(); render();
+});
+
+// --- Vim navigation ---
+(function vimMode() {
+  let focusIdx = -1;
+  let pending = '';
+
+  function items() {
+    return Array.from(document.querySelectorAll('#tree .focusable[data-fkey]'));
+  }
+
+  function focus(idx) {
+    const els = items();
+    if (!els.length) return;
+    els.forEach(el => el.classList.remove('focused'));
+    focusIdx = Math.max(0, Math.min(idx, els.length - 1));
+    const el = els[focusIdx];
+    el.classList.add('focused');
+    vimFocusKey = el.dataset.fkey;
+    el.scrollIntoView({block: 'nearest'});
+  }
+
+  function info() {
+    const els = items();
+    const el = els[focusIdx];
+    if (!el) return null;
+    const fk = el.dataset.fkey;
+    if (fk.startsWith('h:')) {
+      const pk = fk.substring(2);
+      return { type: 'header', pk, path: pk.split('-').map(Number), el };
+    }
+    if (fk.startsWith('c:')) {
+      const rest = fk.substring(2);
+      const lastColon = rest.lastIndexOf(':');
+      const pk = rest.substring(0, lastColon);
+      const field = rest.substring(lastColon + 1);
+      return { type: 'content', pk, path: pk.split('-').map(Number), field, el };
+    }
+    return null;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (editing) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const key = e.key;
+
+    // Pending combos
+    if (pending === 'g' && key === 'g') {
+      e.preventDefault(); pending = ''; focus(0); return;
+    }
+    pending = '';
+
+    const fi = info();
+
+    switch (key) {
+      case 'j': e.preventDefault(); focus(focusIdx + 1); break;
+      case 'k': e.preventDefault(); focus(focusIdx - 1); break;
+      case 'l':
+      case 'Enter': {
+        e.preventDefault();
+        if (!fi) break;
+        if (fi.type === 'content') {
+          startEdit(fi.el, fi.path, fi.field, true, true);
+          break;
+        }
+        const node = nodeAt(fi.path);
+        if (!isLeaf(node)) {
+          if (!openNodes.has(fi.pk)) { openNodes.add(fi.pk); renderTree(); highlight(); focus(focusIdx); }
+        } else if (node.details) {
+          if (!openDetailsSet.has(fi.pk)) { openDetailsSet.add(fi.pk); renderTree(); highlight(); focus(focusIdx); }
+        }
+        break;
+      }
+      case 'h': {
+        e.preventDefault();
+        if (!fi) break;
+        if (fi.type === 'content') {
+          // Go to parent header
+          const hKey = 'h:' + fi.pk;
+          const els = items();
+          const idx = els.findIndex(el => el.dataset.fkey === hKey);
+          if (idx >= 0) focus(idx);
+          break;
+        }
+        const node = nodeAt(fi.path);
+        if (!isLeaf(node) && openNodes.has(fi.pk)) {
+          openNodes.delete(fi.pk); renderTree(); highlight(); focus(focusIdx);
+        } else if (isLeaf(node) && node.details && openDetailsSet.has(fi.pk)) {
+          openDetailsSet.delete(fi.pk); renderTree(); highlight(); focus(focusIdx);
+        } else if (fi.path.length > 1) {
+          const parentKey = 'h:' + pathKey(fi.path.slice(0, -1));
+          const els = items();
+          const idx = els.findIndex(el => el.dataset.fkey === parentKey);
+          if (idx >= 0) focus(idx);
+        }
+        break;
+      }
+      case ' ': {
+        e.preventDefault();
+        if (!fi) break;
+        const node = nodeAt(fi.path);
+        if (isLeaf(node)) { cycleLeafStatus(node); focus(focusIdx); }
+        break;
+      }
+      case 'o': {
+        e.preventDefault();
+        if (!fi || fi.type !== 'header') break;
+        const node = nodeAt(fi.path);
+        if (!isLeaf(node)) { toggleNode(fi.pk); focus(focusIdx); }
+        else if (node.details) { toggleDetails(fi.pk); focus(focusIdx); }
+        break;
+      }
+      case 'g': pending = 'g'; break;
+      case 'G': e.preventDefault(); focus(items().length - 1); break;
+      case 'i': {
+        e.preventDefault();
+        if (!fi) break;
+        if (fi.type === 'content') {
+          startEdit(fi.el, fi.path, fi.field, true, true);
+        } else {
+          const nameEl = fi.el.querySelector('[data-field="name"]');
+          if (nameEl) startEdit(nameEl, fi.path, 'name', false);
+        }
+        break;
+      }
+      case '?': {
+        e.preventDefault();
+        const help = document.getElementById('vim-help');
+        if (help) help.style.display = help.style.display === 'none' ? '' : 'none';
+        break;
+      }
+      default: return;
+    }
+  });
+
+  const h = document.createElement('div');
+  h.id = 'vim-help';
+  h.className = 'vim-help';
+  h.innerHTML = [
+    '<kbd>j</kbd>/<kbd>k</kbd> move (into text blocks)',
+    '<kbd>h</kbd>/<kbd>l</kbd> collapse/expand',
+    '<kbd>space</kbd> cycle status',
+    '<kbd>o</kbd> toggle',
+    '<kbd>gg</kbd> top  <kbd>G</kbd> bottom',
+    '<kbd>i</kbd>/<kbd>Enter</kbd> edit',
+    '<kbd>?</kbd> toggle help',
+  ].join('<br>');
+  document.body.appendChild(h);
+})();
+</script>
+</body>
+</html>

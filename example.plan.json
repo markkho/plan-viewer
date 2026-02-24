@@ -1,0 +1,143 @@
+{
+  "title": "Example Project Plan",
+  "motivation": [
+    "This is an example plan file demonstrating the supported features.",
+    "",
+    "You can write **markdown** in motivation, descriptions, and details,",
+    "including $\\LaTeX$ math like $E = mc^2$ and code blocks:",
+    "",
+    "```python",
+    "def hello():",
+    "    print('Hello, world!')",
+    "```"
+  ],
+  "children": [
+    {
+      "name": "Research & Design",
+      "short": "Research",
+      "description": "Gather requirements, explore existing solutions, and design the architecture.",
+      "children": [
+        {
+          "name": "Survey existing approaches",
+          "status": "complete",
+          "note": "3 papers reviewed",
+          "details": [
+            "Reviewed the following:",
+            "- Smith et al. (2024) — baseline approach",
+            "- Jones & Lee (2023) — improved algorithm with $O(n \\log n)$ complexity",
+            "- Park (2024) — state of the art"
+          ]
+        },
+        {
+          "name": "Write design document",
+          "status": "complete"
+        },
+        {
+          "name": "Get team sign-off",
+          "status": "complete",
+          "note": "approved 2/15"
+        }
+      ]
+    },
+    {
+      "name": "Core Implementation",
+      "short": "Core",
+      "description": [
+        "Build the main components of the system.",
+        "",
+        "Key constraints:",
+        "- Must support both batch and streaming modes",
+        "- Latency target: < 50ms p99"
+      ],
+      "children": [
+        {
+          "name": "Data ingestion pipeline",
+          "status": "complete",
+          "details": [
+            "Implemented a streaming pipeline using:",
+            "",
+            "```",
+            "Source → Parser → Validator → Transformer → Sink",
+            "```",
+            "",
+            "Throughput: ~10k events/sec on a single core."
+          ]
+        },
+        {
+          "name": "Processing engine",
+          "status": "in_progress",
+          "note": "70% done",
+          "description": "The core computation engine. Uses a divide-and-conquer strategy.",
+          "children": [
+            {
+              "name": "Implement base algorithm",
+              "status": "complete"
+            },
+            {
+              "name": "Add streaming support",
+              "status": "in_progress"
+            },
+            {
+              "name": "Optimize hot path",
+              "status": "pending"
+            }
+          ]
+        },
+        {
+          "name": "Output formatter",
+          "status": "pending",
+          "description": "Formats results as JSON, CSV, or Markdown tables."
+        }
+      ]
+    },
+    {
+      "name": "Testing & Validation",
+      "short": "Testing",
+      "description": "Comprehensive test suite covering unit, integration, and performance tests.",
+      "children": [
+        {
+          "name": "Unit tests",
+          "status": "in_progress",
+          "note": "42/60 passing"
+        },
+        {
+          "name": "Integration tests",
+          "status": "pending"
+        },
+        {
+          "name": "Performance benchmarks",
+          "status": "pending",
+          "details": [
+            "Benchmark targets:",
+            "",
+            "| Metric | Target | Current |",
+            "|--------|--------|---------|",
+            "| Throughput | 10k/s | TBD |",
+            "| Latency p50 | 5ms | TBD |",
+            "| Latency p99 | 50ms | TBD |",
+            "| Memory | < 512MB | TBD |"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Documentation & Release",
+      "short": "Release",
+      "children": [
+        {
+          "name": "Write user guide",
+          "status": "pending"
+        },
+        {
+          "name": "Write API reference",
+          "status": "pending"
+        },
+        {
+          "name": "Publish v1.0",
+          "status": "deferred",
+          "note": "blocked on testing"
+        }
+      ]
+    }
+  ]
+}
