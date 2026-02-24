@@ -29,18 +29,20 @@ Three files, no build step, no dependencies beyond CDN links:
   "children": [
     {
       "name": "string (required)",
-      "status": "pending | in_progress | complete | deferred (leaf only)",
-      "short": "string (overview card label)",
+      "status": "pending | in_progress | complete | deferred (leaf only, omit for notes)",
       "description": "string | string[] (markdown)",
       "details": "string | string[] (markdown, expandable)",
       "note": "string (shown in header)",
+      "deadline": "YYYY-MM-DD (optional, shown as 'due Mon DD')",
+      "created": "ISO timestamp (auto-set)",
+      "modified": "ISO timestamp (auto-updated)",
       "children": "array (makes it a branch node)"
     }
   ]
 }
 ```
 
-String arrays are joined with newlines for rendering. Markdown, LaTeX (`$...$`, `$$...$$`, `\(...\)`, `\[...\]`), and fenced code blocks are all supported in `motivation`, `description`, and `details`.
+String arrays are joined with newlines for rendering. Markdown, LaTeX (`$...$`, `$$...$$`, `\(...\)`, `\[...\]`), and fenced code blocks are all supported in `description` and `details`. Nodes without `status` are plain notes; nodes with `status` are todos. Deadlines show as colored labels (gray = normal, yellow = due within 3 days, red = overdue).
 
 ## Editing the Extension
 

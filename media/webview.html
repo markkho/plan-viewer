@@ -49,20 +49,9 @@
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--fg); max-width: 960px; margin: 0 auto; padding: 24px; line-height: 1.5; }
   h1 { font-size: 1.6em; margin-bottom: 8px; }
   .subtitle { color: var(--gray); margin-bottom: 24px; font-size: 0.9em; }
-  .motivation { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 24px; font-size: 0.9em; line-height: 1.6; }
-  .motivation summary { cursor: pointer; font-weight: 600; }
-  .motivation .content { margin-top: 12px; }
-  .next-step { background: var(--blue-bg); border: 1px solid var(--blue); border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; }
-  .next-step .label { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue); font-weight: 600; }
-  .next-step .step-name { font-weight: 600; margin-top: 2px; }
-  .next-step .step-note { font-size: 0.85em; color: var(--gray); }
-  .overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .overview-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: background 0.15s; }
-  .overview-card:hover { background: var(--hover); }
-  .overview-card .phase-name { font-size: 0.85em; font-weight: 600; margin-bottom: 4px; }
-  .overview-card .progress-text { font-size: 0.75em; color: var(--gray); margin-bottom: 6px; }
-  .progress-bar { height: 6px; background: var(--bar-bg); border-radius: 3px; overflow: hidden; }
-  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .node-deadline { font-size: 0.72em; font-weight: 500; white-space: nowrap; color: var(--gray); cursor: text; }
+  .node-deadline.overdue { color: var(--red); }
+  .node-deadline.soon { color: var(--yellow); }
   .node { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
   .node-header { padding: 10px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; position: sticky; background: var(--card); border-radius: 8px 8px 0 0; box-shadow: 0 1px 0 var(--border); }
   .depth-0 > .node-header { top: 0; z-index: 14; }
@@ -73,8 +62,7 @@
   .node-header:hover { background: var(--hover); }
   .node-header .arrow { font-size: 0.7em; transition: transform 0.2s; color: var(--gray); min-width: 12px; }
   .node-header.open .arrow { transform: rotate(90deg); }
-  .node-header .node-id { font-size: 0.78em; color: var(--gray); font-family: monospace; min-width: 36px; }
-  .node-header .node-icon { font-size: 1.3em; min-width: 36px; cursor: text; text-align: center; }
+  .node-header .node-icon { font-size: 1.1em; cursor: text; }
   .node-header .node-name { font-weight: 500; flex: 1; font-size: 0.9em; }
   .node-header .node-note { font-size: 0.75em; color: var(--gray); font-style: italic; max-width: 220px; text-align: right; }
   .node-header .node-date { font-size: 0.7em; color: var(--gray); opacity: 0.5; white-space: nowrap; }
@@ -98,11 +86,11 @@
   .node-desc h1, .node-details h1 { font-size: 1.2em; }
   .node-desc h2, .node-details h2 { font-size: 1.1em; }
   .node-desc h3, .node-details h3 { font-size: 1.0em; }
-  .node-desc table, .node-details table, .motivation .content table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 0.95em; }
-  .node-desc th, .node-details th, .motivation .content th { text-align: left; font-weight: 600; padding: 6px 10px; border-bottom: 2px solid var(--border); background: var(--card); }
-  .node-desc td, .node-details td, .motivation .content td { padding: 5px 10px; border-bottom: 1px solid var(--border); }
-  .node-desc tr:last-child td, .node-details tr:last-child td, .motivation .content tr:last-child td { border-bottom: none; }
-  .node-desc tr:hover td, .node-details tr:hover td, .motivation .content tr:hover td { background: var(--hover); }
+  .node-desc table, .node-details table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 0.95em; }
+  .node-desc th, .node-details th { text-align: left; font-weight: 600; padding: 6px 10px; border-bottom: 2px solid var(--border); background: var(--card); }
+  .node-desc td, .node-details td { padding: 5px 10px; border-bottom: 1px solid var(--border); }
+  .node-desc tr:last-child td, .node-details tr:last-child td { border-bottom: none; }
+  .node-desc tr:hover td, .node-details tr:hover td { background: var(--hover); }
   .node-desc blockquote, .node-details blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--gray); margin: 6px 0; }
   .node-desc a, .node-details a { color: var(--blue); text-decoration: none; }
   .node-desc a:hover, .node-details a:hover { text-decoration: underline; }
@@ -188,6 +176,10 @@
     <span class="val" id="font-size-val">15</span>
   </div>
   <div class="settings-row">
+    <label>Vim mode</label>
+    <input type="checkbox" id="vim-mode-toggle" checked>
+  </div>
+  <div class="settings-row">
     <label>Vim hints</label>
     <input type="checkbox" id="vim-hints-toggle">
   </div>
@@ -198,9 +190,6 @@
 <div id="app" style="display:none">
   <h1 id="page-title"></h1>
   <p class="subtitle">Double-click text to edit. Click badges to cycle status.</p>
-  <div id="motivation-el"></div>
-  <div id="next-step"></div>
-  <div id="overview" class="overview"></div>
   <div id="tree"></div>
   <div class="toolbar">
     <button class="btn primary" id="save-btn">Save</button>
@@ -234,6 +223,17 @@ const vscode = acquireVsCodeApi();
     vscode.setState({ ...vscode.getState(), fontSize: sz });
   });
 
+  // Vim mode toggle
+  const vimToggle = document.getElementById('vim-mode-toggle');
+  window.vimEnabled = state.vimMode !== false; // default on
+  vimToggle.checked = window.vimEnabled;
+  vimToggle.addEventListener('change', () => {
+    window.vimEnabled = vimToggle.checked;
+    vscode.setState({ ...vscode.getState(), vimMode: window.vimEnabled });
+    const help = document.getElementById('vim-help');
+    if (help) help.style.display = (window.vimEnabled && hintsToggle.checked) ? '' : 'none';
+  });
+
   // Vim hints toggle
   const hintsToggle = document.getElementById('vim-hints-toggle');
   const showHints = state.vimHints === true; // default off
@@ -241,12 +241,12 @@ const vscode = acquireVsCodeApi();
   // Apply after vim-help element is created (deferred)
   setTimeout(() => {
     const help = document.getElementById('vim-help');
-    if (help) help.style.display = showHints ? '' : 'none';
+    if (help) help.style.display = (showHints && window.vimEnabled) ? '' : 'none';
   }, 0);
   hintsToggle.addEventListener('change', () => {
     const on = hintsToggle.checked;
     const help = document.getElementById('vim-help');
-    if (help) help.style.display = on ? '' : 'none';
+    if (help) help.style.display = (on && window.vimEnabled) ? '' : 'none';
     vscode.setState({ ...vscode.getState(), vimHints: on });
   });
 
@@ -319,6 +319,22 @@ function relTime(iso) {
   return `${Math.floor(mo / 12)}y ago`;
 }
 
+function fmtDeadline(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[d.getMonth()] + ' ' + d.getDate();
+}
+function deadlineClass(iso) {
+  if (!iso) return '';
+  const now = new Date(); now.setHours(0,0,0,0);
+  const d = new Date(iso + 'T00:00:00');
+  const diff = (d - now) / 86400000;
+  if (diff < 0) return 'overdue';
+  if (diff <= 3) return 'soon';
+  return '';
+}
+
 function nodeAt(path) {
   let node = data;
   for (const i of path) node = node.children[i];
@@ -374,33 +390,7 @@ function hasAnyStatus(node) {
   return node.children.some(c => hasAnyStatus(c));
 }
 
-function nodeId(path) { return path.map(i => i + 1).join('.'); }
-function displayId(path) {
-  const parts = [];
-  for (let i = 0; i < path.length; i++) {
-    const node = nodeAt(path.slice(0, i + 1));
-    parts.push(node.icon || String(path[i] + 1));
-  }
-  return parts.join('.');
-}
 function pathKey(path) { return path.join('-'); }
-
-function findNext(node, path) {
-  if (isLeaf(node)) return node.status === 'in_progress' ? {node, path, id: displayId(path)} : null;
-  for (let i = 0; i < node.children.length; i++) { const r = findNext(node.children[i], [...path, i]); if (r) return r; }
-  return null;
-}
-function findNextPending(node, path) {
-  if (isLeaf(node)) return node.status === 'pending' ? {node, path, id: displayId(path)} : null;
-  for (let i = 0; i < node.children.length; i++) { const r = findNextPending(node.children[i], [...path, i]); if (r) return r; }
-  return null;
-}
-function getNextStep() {
-  if (!data) return null;
-  for (let i = 0; i < data.children.length; i++) { const r = findNext(data.children[i], [i]); if (r) return r; }
-  for (let i = 0; i < data.children.length; i++) { const r = findNextPending(data.children[i], [i]); if (r) return r; }
-  return null;
-}
 
 // --- Search ---
 function flattenNodes(node, path, ancestors) {
@@ -489,7 +479,7 @@ function openSearch() {
     results = searchNodes(input.value);
     const q = input.value.trim();
     resultsEl.innerHTML = results.map((r, i) => {
-      const icon = r.node.icon || displayId(r.path);
+      const icon = r.node.icon || '';
       const breadcrumb = r.ancestors.length ? r.ancestors.join(' \u203a ') : '';
       const dateStr = r.node.modified ? relTime(r.node.modified) : '';
       return `<div class="search-item ${i === activeIdx ? 'active' : ''}" data-idx="${i}">
@@ -556,6 +546,10 @@ document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'f' && !editing && !searchOpen) {
     e.preventDefault();
     openSearch();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    vscode.postMessage({ type: 'save', data });
   }
 });
 
@@ -679,7 +673,7 @@ function startEdit(el, path, field, multiline, vimNormal) {
 function addChild(path) {
   const parent = path.length === 0 ? data : nodeAt(path);
   if (!parent.children) parent.children = [];
-  const newNode = {name: 'New step', status: 'pending'};
+  const newNode = {name: 'New node'};
   touchNode(newNode, true);
   parent.children.push(newNode);
   const pk = pathKey(path);
@@ -759,7 +753,7 @@ function highlight() {
     document.querySelectorAll('pre code').forEach(el => { hljs.highlightElement(el); });
   }
   if (typeof renderMathInElement !== 'undefined') {
-    document.querySelectorAll('.node-desc, .node-details, .motivation .content').forEach(el => {
+    document.querySelectorAll('.node-desc, .node-details').forEach(el => {
       renderMathInElement(el, {
         delimiters: [
           {left: '$$', right: '$$', display: true},
@@ -774,61 +768,49 @@ function highlight() {
 }
 
 // --- Render ---
+function editRootField(el, field, placeholder) {
+  if (editing) return;
+  editing = true;
+  const raw = data[field] || '';
+  const input = document.createElement('input');
+  input.className = 'edit-input';
+  input.value = raw;
+  input.placeholder = placeholder || '';
+  input.style.fontSize = getComputedStyle(el).fontSize;
+  input.style.fontWeight = getComputedStyle(el).fontWeight;
+  el.textContent = '';
+  el.appendChild(input);
+  input.focus();
+  input.select();
+  let saved = false;
+  const save = () => {
+    if (saved) return;
+    saved = true;
+    editing = false;
+    const val = input.value.trim();
+    if (val !== raw) { data[field] = val || undefined; markDirty(); }
+    render();
+  };
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
+    if (e.key === 'Escape') { e.preventDefault(); saved = true; editing = false; render(); }
+  });
+}
+
 function render() {
   if (!data) return;
-  document.getElementById('page-title').textContent = data.title || 'Plan';
-  const hasPlan = data.children.some(c => hasAnyStatus(c));
-  document.querySelector('.subtitle').textContent = hasPlan
-    ? 'Double-click text to edit. Click badges to cycle status.'
-    : 'Double-click text to edit.';
-  renderMotivation();
-  renderNextStep();
-  renderOverview();
+  const titleEl = document.getElementById('page-title');
+  titleEl.textContent = data.title || 'Untitled';
+  titleEl.ondblclick = () => editRootField(titleEl, 'title', 'Title');
+
+  const subEl = document.querySelector('.subtitle');
+  subEl.textContent = data.subtitle || 'Double-click to add a description...';
+  if (data.subtitle) subEl.style.fontStyle = 'normal'; else subEl.style.fontStyle = 'italic';
+  subEl.ondblclick = () => editRootField(subEl, 'subtitle', 'Description');
+
   renderTree();
   highlight();
-}
-
-function renderMotivation() {
-  const el = document.getElementById('motivation-el');
-  if (!data.motivation) { el.innerHTML = ''; return; }
-  el.innerHTML = `<details class="motivation"><summary>Motivation</summary><div class="content">${renderMd(txt(data.motivation))}</div></details>`;
-}
-
-function renderNextStep() {
-  const el = document.getElementById('next-step');
-  const hasPlan = data.children.some(c => hasAnyStatus(c));
-  const next = getNextStep();
-  if (!next) {
-    if (!hasPlan) { el.innerHTML = ''; return; }
-    el.innerHTML = '<div class="next-step" style="background:var(--green-bg);border-color:var(--green)"><div class="label" style="color:var(--green)">All done!</div><div class="step-name">All phases complete.</div></div>';
-    return;
-  }
-  const prefix = next.node.status === 'in_progress' ? 'Currently working on' : 'Next up';
-  el.innerHTML = `<div class="next-step">
-    <div class="label">${prefix}</div>
-    <div class="step-name">${next.id} &mdash; ${next.node.name}</div>
-    ${next.node.note ? `<div class="step-note">${next.node.note}</div>` : ''}
-  </div>`;
-}
-
-function renderOverview() {
-  const el = document.getElementById('overview');
-  if (!data.children.some(c => hasAnyStatus(c))) { el.innerHTML = ''; return; }
-  el.innerHTML = data.children.map((p, i) => {
-    if (!hasAnyStatus(p)) return '';
-    const {done, total} = countProgress(p);
-    const pct = total > 0 ? (done / total * 100) : 0;
-    const status = deriveStatus(p);
-    const color = status ? STATUS_COLORS[status] : 'var(--gray)';
-    const pk = pathKey([i]);
-    const progressHtml = total > 0
-      ? `<div class="progress-text">${done}/${total}</div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>`
-      : '';
-    return `<div class="overview-card" onclick="toggleNode('${pk}')">
-      <div class="phase-name">${displayId([i])}: ${p.short || p.name}</div>
-      ${progressHtml}
-    </div>`;
-  }).join('');
 }
 
 function toggleNode(pk) {
@@ -859,7 +841,6 @@ function renderTree() {
 
 function renderNode(node, path, depth) {
   const pk = pathKey(path);
-  const id = displayId(path);
   const leaf = isLeaf(node);
   const status = deriveStatus(node);
   const isOpen = openNodes.has(pk);
@@ -880,6 +861,11 @@ function renderNode(node, path, depth) {
       badgeHtml = `<span class="badge ${status}">${statusLabel}</span>`;
     }
   }
+
+  const dlClass = deadlineClass(node.deadline);
+  const deadlineHtml = node.deadline
+    ? `<span class="node-deadline ${dlClass}" data-edit="single" data-path='${ps}' data-field="deadline" title="Due: ${new Date(node.deadline + 'T00:00:00').toLocaleDateString()}">due ${fmtDeadline(node.deadline)}</span>`
+    : '';
 
   const actions = `<span class="node-actions">
     <button onclick="event.stopPropagation(); addChild([${path}])" title="Add child">+</button>
@@ -906,9 +892,10 @@ function renderNode(node, path, depth) {
   return `<div class="node depth-${depth}" data-path='${ps}'>
     <div class="node-header focusable ${isOpen || detailOpen ? 'open' : ''}" data-pk="${pk}" data-fkey="h:${pk}" onclick="${clickAction}" draggable="true" data-path='${ps}'>
       ${canExpand ? `<span class="arrow">&#9654;</span>` : `<span class="arrow" style="visibility:hidden">&#9654;</span>`}
-      ${node.icon ? `<span class="node-icon" data-edit="single" data-path='${ps}' data-field="icon">${node.icon}</span>` : `<span class="node-id">${id}</span>`}
+      ${node.icon ? `<span class="node-icon" data-edit="single" data-path='${ps}' data-field="icon">${node.icon}</span>` : ''}
       <span class="node-name" data-edit="single" data-path='${ps}' data-field="name">${escHtml(node.name)}</span>
       <span class="node-note" data-edit="single" data-path='${ps}' data-field="note">${node.note ? escHtml(node.note) : ''}</span>
+      ${deadlineHtml}
       ${node.modified ? `<span class="node-date" title="${node.created ? 'Created: ' + new Date(node.created).toLocaleString() + '\n' : ''}Modified: ${new Date(node.modified).toLocaleString()}">${relTime(node.modified)}</span>` : ''}
       ${actions}
       ${badgeHtml}
@@ -1149,6 +1136,7 @@ function performMove(srcPath, tgtPath, position) {
   }
 
   document.addEventListener('keydown', e => {
+    if (!window.vimEnabled) return;
     if (editing) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     const key = e.key;

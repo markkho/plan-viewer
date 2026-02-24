@@ -1,21 +1,9 @@
 {
-  "title": "Example Project Plan",
-  "motivation": [
-    "This is an example plan file demonstrating the supported features.",
-    "",
-    "You can write **markdown** in motivation, descriptions, and details,",
-    "including $\\LaTeX$ math like $E = mc^2$ and code blocks:",
-    "",
-    "```python",
-    "def hello():",
-    "    print('Hello, world!')",
-    "```"
-  ],
+  "title": "Example Project",
   "children": [
     {
       "name": "Research & Design",
-      "short": "Research",
-      "icon": "\ud83d\udd2c",
+      "icon": "🔬",
       "description": "Gather requirements, explore existing solutions, and design the architecture.",
       "children": [
         {
@@ -42,10 +30,9 @@
     },
     {
       "name": "Core Implementation",
-      "short": "Core",
-      "icon": "\u2699\ufe0f",
+      "icon": "⚙️",
       "description": [
-        "Build the main components of the system.",
+        "Build the main components of the system. test",
         "",
         "Key constraints:",
         "- Must support both batch and streaming modes",
@@ -67,8 +54,6 @@
         },
         {
           "name": "Processing engine",
-          "status": "in_progress",
-          "note": "70% done",
           "description": "The core computation engine. Uses a divide-and-conquer strategy.",
           "children": [
             {
@@ -77,30 +62,34 @@
             },
             {
               "name": "Add streaming support",
-              "status": "in_progress"
+              "status": "in_progress",
+              "deadline": "2026-03-01"
             },
             {
               "name": "Optimize hot path",
-              "status": "pending"
+              "status": "pending",
+              "deadline": "2026-03-15"
             }
           ]
         },
         {
           "name": "Output formatter",
           "status": "pending",
-          "description": "Formats results as JSON, CSV, or Markdown tables."
+          "description": "Formats results as JSON, CSV, or Markdown tables.",
+          "deadline": "2026-04-01"
         }
-      ]
+      ],
+      "modified": "2026-02-24T03:46:54.582Z"
     },
     {
-      "name": "Testing & Validation",
-      "short": "Testing",
+      "name": "Testing",
       "description": "Comprehensive test suite covering unit, integration, and performance tests.",
       "children": [
         {
           "name": "Unit tests",
           "status": "in_progress",
-          "note": "42/60 passing"
+          "note": "42/60 passing",
+          "modified": "2026-02-24T03:30:26.552Z"
         },
         {
           "name": "Integration tests",
@@ -123,29 +112,9 @@
       ]
     },
     {
-      "name": "Documentation & Release",
-      "short": "Release",
-      "children": [
-        {
-          "name": "Write user guide",
-          "status": "pending"
-        },
-        {
-          "name": "Write API reference",
-          "status": "pending"
-        },
-        {
-          "name": "Publish v1.0",
-          "status": "deferred",
-          "note": "blocked on testing"
-        }
-      ]
-    },
-    {
       "name": "Notes & Research",
-      "short": "Notes",
-      "icon": "\ud83d\udcdd",
-      "description": "Reference material and design notes — no status tracking.",
+      "icon": "📝",
+      "description": "Reference material and design notes.",
       "children": [
         {
           "name": "Architecture decisions",
@@ -155,19 +124,6 @@
             "",
             "**ADR-2**: Single-threaded processing engine with async I/O.",
             "We can always shard later; premature parallelism adds complexity."
-          ]
-        },
-        {
-          "name": "Useful references",
-          "children": [
-            {
-              "name": "Smith et al. — Baseline approach",
-              "description": "Core algorithm we adapted. See Section 3 for the recurrence relation: $T(n) = 2T(n/2) + O(n)$."
-            },
-            {
-              "name": "Jones & Lee — Improved algorithm",
-              "description": "Key insight: skip redundant comparisons using a bloom filter. Reduces average case to $O(n \\log \\log n)$."
-            }
           ]
         },
         {
