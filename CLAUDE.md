@@ -22,10 +22,14 @@ Three files, no build step, no dependencies beyond CDN links:
 
 ## File Format (PLAN.json)
 
+Full JSON Schema: https://raw.githubusercontent.com/markkho/plan-viewer/main/schema.json
+
+Add `"$schema": "https://raw.githubusercontent.com/markkho/plan-viewer/main/schema.json"` to plan files for editor validation.
+
 ```json
 {
   "title": "string",
-  "motivation": "string | string[]",
+  "subtitle": "string",
   "children": [
     {
       "name": "string (required)",
@@ -33,6 +37,7 @@ Three files, no build step, no dependencies beyond CDN links:
       "description": "string | string[] (markdown)",
       "details": "string | string[] (markdown, expandable)",
       "note": "string (shown in header)",
+      "icon": "string (emoji, defaults based on node type/status)",
       "deadline": "YYYY-MM-DD (optional, shown as 'due Mon DD')",
       "created": "ISO timestamp (auto-set)",
       "modified": "ISO timestamp (auto-updated)",

@@ -1,11 +1,15 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/plan-viewer/schema.json",
+  "$id": "https://raw.githubusercontent.com/markkho/plan-viewer/main/schema.json",
   "title": "Plan",
   "description": "A hierarchical plan/task tracker used by the Plan Viewer VS Code extension. Files should be named PLAN.json or *.plan.json.",
   "type": "object",
   "required": ["children"],
   "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URL to the JSON Schema for validation."
+    },
     "title": {
       "type": "string",
       "description": "Display title shown at the top of the plan."

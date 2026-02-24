@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/markkho/plan-viewer/main/schema.json",
   "title": "Example Project",
   "children": [
     {
