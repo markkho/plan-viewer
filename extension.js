@@ -32,12 +32,20 @@ class PlanEditorProvider {
     // Small delay to ensure webview scripts are initialized
     setTimeout(() => sendData(), 100);
 
-    // Watch for external changes to the document (git, other editors, etc.)
+    // Watch for in-buffer changes (e.g. other extensions, undo)
     const changeDocSub = vscode.workspace.onDidChangeTextDocument(e => {
       if (e.document.uri.toString() === document.uri.toString() && e.contentChanges.length > 0) {
         sendData();
       }
     });
+
+    // Watch for on-disk changes (e.g. git, external editors, scripts)
+    const fileWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(document.uri, '*')
+    );
+    const onDiskChange = () => sendData();
+    fileWatcher.onDidChange(onDiskChange);
+    fileWatcher.onDidCreate(onDiskChange);
 
     // Handle messages from webview
     const msgSub = webviewPanel.webview.onDidReceiveMessage(async msg => {
@@ -65,6 +73,7 @@ class PlanEditorProvider {
 
     webviewPanel.onDidDispose(() => {
       changeDocSub.dispose();
+      fileWatcher.dispose();
       msgSub.dispose();
     });
   }

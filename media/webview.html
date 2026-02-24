@@ -62,6 +62,7 @@
   .node-header:hover { background: var(--hover); }
   .node-header .arrow { font-size: 0.7em; transition: transform 0.2s; color: var(--gray); min-width: 12px; }
   .node-header.open .arrow { transform: rotate(90deg); }
+  .node-header .node-id { font-size: 0.72em; color: var(--gray); opacity: 0.5; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 1.5em; }
   .node-header .node-icon { font-size: 1.1em; cursor: text; }
   .node-header .node-name { font-weight: 500; flex: 1; font-size: 0.9em; }
   .node-header .node-note { font-size: 0.75em; color: var(--gray); font-style: italic; max-width: 220px; text-align: right; }
@@ -72,6 +73,7 @@
   .badge.in_progress { background: var(--yellow-bg); color: var(--yellow); }
   .badge.pending { background: var(--gray-bg); color: var(--gray); }
   .badge.deferred { background: var(--gray-bg); color: var(--gray); opacity: 0.6; font-style: italic; }
+  .badge.note { background: transparent; color: var(--gray); opacity: 0.4; border: 1px dashed var(--border); }
   .node-body { padding: 0 14px 10px; }
   .node-desc { font-size: 0.83em; color: var(--gray); line-height: 1.6; padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
   .node-details { padding: 8px 12px; margin: 4px 0 8px 0; background: var(--detail-bg); border-radius: 6px; font-size: 0.83em; line-height: 1.6; }
@@ -559,9 +561,17 @@ function autoOpen(node, path) {
 }
 
 function cycleLeafStatus(node) {
-  if (!isLeaf(node) || !node.status || node.status === 'deferred') return;
-  const idx = STATUS_ORDER.indexOf(node.status);
-  node.status = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+  if (!isLeaf(node) || node.status === 'deferred') return;
+  if (!node.status) {
+    node.status = 'pending';
+  } else {
+    const idx = STATUS_ORDER.indexOf(node.status);
+    if (idx === STATUS_ORDER.length - 1) {
+      delete node.status;
+    } else {
+      node.status = STATUS_ORDER[idx + 1];
+    }
+  }
   touchNode(node);
   markDirty();
   render();
@@ -860,6 +870,8 @@ function renderNode(node, path, depth) {
     } else {
       badgeHtml = `<span class="badge ${status}">${statusLabel}</span>`;
     }
+  } else if (leaf) {
+    badgeHtml = `<span class="badge note" onclick="event.stopPropagation(); cycleAt([${path}])">note</span>`;
   }
 
   const dlClass = deadlineClass(node.deadline);
@@ -892,6 +904,7 @@ function renderNode(node, path, depth) {
   return `<div class="node depth-${depth}" data-path='${ps}'>
     <div class="node-header focusable ${isOpen || detailOpen ? 'open' : ''}" data-pk="${pk}" data-fkey="h:${pk}" onclick="${clickAction}" draggable="true" data-path='${ps}'>
       ${canExpand ? `<span class="arrow">&#9654;</span>` : `<span class="arrow" style="visibility:hidden">&#9654;</span>`}
+      <span class="node-id">${path.map(i => i + 1).join('.')}</span>
       ${node.icon ? `<span class="node-icon" data-edit="single" data-path='${ps}' data-field="icon">${node.icon}</span>` : ''}
       <span class="node-name" data-edit="single" data-path='${ps}' data-field="name">${escHtml(node.name)}</span>
       <span class="node-note" data-edit="single" data-path='${ps}' data-field="note">${node.note ? escHtml(node.note) : ''}</span>
