@@ -74,6 +74,7 @@
   .node-header .arrow { font-size: 0.7em; transition: transform 0.2s; color: var(--gray); min-width: 12px; }
   .node-header.open .arrow { transform: rotate(90deg); }
   .node-header .node-id { font-size: 0.78em; color: var(--gray); font-family: monospace; min-width: 36px; }
+  .node-header .node-icon { font-size: 1.3em; min-width: 36px; cursor: text; text-align: center; }
   .node-header .node-name { font-weight: 500; flex: 1; font-size: 0.9em; }
   .node-header .node-note { font-size: 0.75em; color: var(--gray); font-style: italic; max-width: 220px; text-align: right; }
   .node-header .badge { font-size: 0.72em; padding: 2px 8px; border-radius: 4px; font-weight: 600; cursor: pointer; user-select: none; border: none; transition: opacity 0.15s; white-space: nowrap; }
@@ -96,6 +97,11 @@
   .node-desc h1, .node-details h1 { font-size: 1.2em; }
   .node-desc h2, .node-details h2 { font-size: 1.1em; }
   .node-desc h3, .node-details h3 { font-size: 1.0em; }
+  .node-desc table, .node-details table, .motivation .content table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 0.95em; }
+  .node-desc th, .node-details th, .motivation .content th { text-align: left; font-weight: 600; padding: 6px 10px; border-bottom: 2px solid var(--border); background: var(--card); }
+  .node-desc td, .node-details td, .motivation .content td { padding: 5px 10px; border-bottom: 1px solid var(--border); }
+  .node-desc tr:last-child td, .node-details tr:last-child td, .motivation .content tr:last-child td { border-bottom: none; }
+  .node-desc tr:hover td, .node-details tr:hover td, .motivation .content tr:hover td { background: var(--hover); }
   .node-desc blockquote, .node-details blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--gray); margin: 6px 0; }
   .node-desc a, .node-details a { color: var(--blue); text-decoration: none; }
   .node-desc a:hover, .node-details a:hover { text-decoration: underline; }
@@ -130,6 +136,11 @@
   .add-child-btn { display: block; width: 100%; padding: 6px; margin-top: 4px; background: none; border: 2px dashed var(--border); border-radius: 6px; color: var(--gray); cursor: pointer; font-size: 0.8em; transition: all 0.15s; }
   .add-child-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
   .dirty-indicator { font-size: 0.85em; color: var(--yellow); align-self: center; }
+  /* Drag-and-drop */
+  .node-header[draggable="true"] { cursor: grab; }
+  .node-header.dragging { opacity: 0.4; }
+  .node.drag-over-parent > .node-header { outline: 2px dashed var(--blue); outline-offset: -2px; background: var(--blue-bg); }
+  #drop-indicator { position: absolute; left: 0; right: 0; height: 3px; background: var(--blue); border-radius: 2px; pointer-events: none; z-index: 50; display: none; }
   .focusable.focused { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 6px; }
   /* Settings */
   .settings-toggle { position: fixed; top: 12px; right: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1em; color: var(--gray); z-index: 100; }
@@ -171,6 +182,7 @@
 </div>
 
 <div id="loading">Loading plan data...</div>
+<div id="drop-indicator"></div>
 <div id="app" style="display:none">
   <h1 id="page-title"></h1>
   <p class="subtitle">Double-click text to edit. Click badges to cycle status.</p>
@@ -248,6 +260,7 @@ let data = null;
 let dirty = false;
 let editing = false;
 let vimFocusKey = null;
+let dragSourcePath = null;
 const openNodes = new Set();
 const openDetailsSet = new Set();
 
@@ -301,9 +314,9 @@ window.addEventListener('message', e => {
 function isLeaf(node) { return !node.children || node.children.length === 0; }
 
 function deriveStatus(node) {
-  if (isLeaf(node)) return node.status || 'pending';
-  const kids = node.children.filter(c => deriveStatus(c) !== 'deferred');
-  if (kids.length === 0) return 'pending';
+  if (isLeaf(node)) return node.status || null;
+  const kids = node.children.filter(c => { const s = deriveStatus(c); return s && s !== 'deferred'; });
+  if (kids.length === 0) return null;
   if (kids.every(c => deriveStatus(c) === 'complete')) return 'complete';
   if (kids.some(c => deriveStatus(c) === 'in_progress')) return 'in_progress';
   if (kids.some(c => deriveStatus(c) === 'complete')) return 'in_progress';
@@ -312,24 +325,39 @@ function deriveStatus(node) {
 
 function countProgress(node) {
   if (isLeaf(node)) {
-    const s = node.status || 'pending';
-    return s === 'deferred' ? {done:0, total:0} : {done: s === 'complete' ? 1 : 0, total: 1};
+    const s = node.status;
+    if (!s || s === 'deferred') return {done:0, total:0};
+    return {done: s === 'complete' ? 1 : 0, total: 1};
   }
   let done = 0, total = 0;
   for (const c of node.children) { const p = countProgress(c); done += p.done; total += p.total; }
   return {done, total};
 }
 
+function hasAnyStatus(node) {
+  if (isLeaf(node)) return !!node.status;
+  if (!node.children) return false;
+  return node.children.some(c => hasAnyStatus(c));
+}
+
 function nodeId(path) { return path.map(i => i + 1).join('.'); }
+function displayId(path) {
+  const parts = [];
+  for (let i = 0; i < path.length; i++) {
+    const node = nodeAt(path.slice(0, i + 1));
+    parts.push(node.icon || String(path[i] + 1));
+  }
+  return parts.join('.');
+}
 function pathKey(path) { return path.join('-'); }
 
 function findNext(node, path) {
-  if (isLeaf(node)) return node.status === 'in_progress' ? {node, path, id: nodeId(path)} : null;
+  if (isLeaf(node)) return node.status === 'in_progress' ? {node, path, id: displayId(path)} : null;
   for (let i = 0; i < node.children.length; i++) { const r = findNext(node.children[i], [...path, i]); if (r) return r; }
   return null;
 }
 function findNextPending(node, path) {
-  if (isLeaf(node)) return node.status === 'pending' ? {node, path, id: nodeId(path)} : null;
+  if (isLeaf(node)) return node.status === 'pending' ? {node, path, id: displayId(path)} : null;
   for (let i = 0; i < node.children.length; i++) { const r = findNextPending(node.children[i], [...path, i]); if (r) return r; }
   return null;
 }
@@ -346,8 +374,8 @@ function autoOpen(node, path) {
 }
 
 function cycleLeafStatus(node) {
-  if (!isLeaf(node) || node.status === 'deferred') return;
-  const idx = STATUS_ORDER.indexOf(node.status || 'pending');
+  if (!isLeaf(node) || !node.status || node.status === 'deferred') return;
+  const idx = STATUS_ORDER.indexOf(node.status);
   node.status = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
   markDirty();
   render();
@@ -388,25 +416,31 @@ function startEdit(el, path, field, multiline, vimNormal) {
     };
     cm._save = save;
     // Normal mode: Escape/Enter/jk exit the editor
-    let jkPending = false;
+    let jkPending = false, jkTimer = null;
     cm.on('keydown', (instance, event) => {
       const vim = cm.state.vim;
-      if (!vim || vim.insertMode || vim.visualMode) { jkPending = false; return; }
+      if (!vim || vim.insertMode || vim.visualMode) { jkPending = false; clearTimeout(jkTimer); return; }
       if (event.key === 'Escape' || event.key === 'Enter') {
         event.preventDefault(); event.stopPropagation();
         save(); return;
       }
-      if (event.key === 'j') { jkPending = true; event.preventDefault(); return; }
+      if (event.key === 'j') {
+        jkPending = true; event.preventDefault();
+        jkTimer = setTimeout(() => { if (jkPending) { jkPending = false; CodeMirror.Vim.handleKey(cm, 'j'); } }, 200);
+        return;
+      }
       if (event.key === 'k' && jkPending) {
-        jkPending = false; event.preventDefault(); event.stopPropagation();
+        jkPending = false; clearTimeout(jkTimer);
+        event.preventDefault(); event.stopPropagation();
         save(); return;
       }
-      if (jkPending) { jkPending = false; CodeMirror.Vim.handleKey(cm, 'j'); }
+      if (jkPending) { jkPending = false; clearTimeout(jkTimer); CodeMirror.Vim.handleKey(cm, 'j'); }
     });
     cm.on('blur', () => { setTimeout(() => { if (!cm.hasFocus()) save(); }, 150); });
     // Start in insert mode unless vimNormal
     if (!vimNormal) CodeMirror.Vim.handleKey(cm, 'i');
     cm.focus();
+    wrapper.scrollIntoView({block: 'nearest', behavior: 'smooth'});
   } else {
     const input = document.createElement('input');
     input.className = 'edit-input';
@@ -414,6 +448,7 @@ function startEdit(el, path, field, multiline, vimNormal) {
     el.replaceWith(input);
     input.focus();
     input.select();
+    input.scrollIntoView({block: 'nearest', behavior: 'smooth'});
     const save = () => {
       if (!editing) return;
       editing = false;
@@ -423,6 +458,11 @@ function startEdit(el, path, field, multiline, vimNormal) {
     };
     input.addEventListener('blur', save);
     let jkP = false, jkT = null;
+    function insertJ() {
+      const s = input.selectionStart, e = input.selectionEnd;
+      input.value = input.value.slice(0, s) + 'j' + input.value.slice(e);
+      input.selectionStart = input.selectionEnd = s + 1;
+    }
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') { save(); return; }
       if (e.key === 'Escape') { editing = false; render(); return; }
@@ -430,7 +470,7 @@ function startEdit(el, path, field, multiline, vimNormal) {
       if (e.key === 'j') {
         e.preventDefault();
         jkP = true;
-        jkT = setTimeout(() => { if (jkP) { jkP = false; document.execCommand('insertText', false, 'j'); } }, 200);
+        jkT = setTimeout(() => { if (jkP) { jkP = false; insertJ(); } }, 200);
         return;
       }
       if (e.key === 'k' && jkP) {
@@ -439,7 +479,7 @@ function startEdit(el, path, field, multiline, vimNormal) {
         editing = false; render();
         return;
       }
-      if (jkP) { jkP = false; clearTimeout(jkT); document.execCommand('insertText', false, 'j'); }
+      if (jkP) { jkP = false; clearTimeout(jkT); insertJ(); }
     });
   }
 }
@@ -452,6 +492,16 @@ function addChild(path) {
   openNodes.add(pk);
   markDirty();
   render();
+}
+
+function editDescription(path) {
+  const node = nodeAt(path);
+  const pk = pathKey(path);
+  if (!node.description) node.description = [];
+  if (isLeaf(node)) openDetailsSet.add(pk); else openNodes.add(pk);
+  renderTree(); highlight();
+  const descEl = document.querySelector(`[data-fkey="c:${pk}:description"]`);
+  if (descEl) startEdit(descEl, path, 'description', true, false);
 }
 
 function showConfirm(msg) {
@@ -533,6 +583,10 @@ function highlight() {
 function render() {
   if (!data) return;
   document.getElementById('page-title').textContent = data.title || 'Plan';
+  const hasPlan = data.children.some(c => hasAnyStatus(c));
+  document.querySelector('.subtitle').textContent = hasPlan
+    ? 'Double-click text to edit. Click badges to cycle status.'
+    : 'Double-click text to edit.';
   renderMotivation();
   renderNextStep();
   renderOverview();
@@ -548,8 +602,10 @@ function renderMotivation() {
 
 function renderNextStep() {
   const el = document.getElementById('next-step');
+  const hasPlan = data.children.some(c => hasAnyStatus(c));
   const next = getNextStep();
   if (!next) {
+    if (!hasPlan) { el.innerHTML = ''; return; }
     el.innerHTML = '<div class="next-step" style="background:var(--green-bg);border-color:var(--green)"><div class="label" style="color:var(--green)">All done!</div><div class="step-name">All phases complete.</div></div>';
     return;
   }
@@ -563,15 +619,19 @@ function renderNextStep() {
 
 function renderOverview() {
   const el = document.getElementById('overview');
+  if (!data.children.some(c => hasAnyStatus(c))) { el.innerHTML = ''; return; }
   el.innerHTML = data.children.map((p, i) => {
     const {done, total} = countProgress(p);
     const pct = total > 0 ? (done / total * 100) : 0;
-    const color = STATUS_COLORS[deriveStatus(p)];
+    const status = deriveStatus(p);
+    const color = status ? STATUS_COLORS[status] : 'var(--gray)';
     const pk = pathKey([i]);
+    const progressHtml = total > 0
+      ? `<div class="progress-text">${done}/${total}</div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>`
+      : '';
     return `<div class="overview-card" onclick="toggleNode('${pk}')">
-      <div class="phase-name">${nodeId([i])}: ${p.short || p.name}</div>
-      <div class="progress-text">${done}/${total}</div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="phase-name">${displayId([i])}: ${p.short || p.name}</div>
+      ${progressHtml}
     </div>`;
   }).join('');
 }
@@ -604,7 +664,7 @@ function renderTree() {
 
 function renderNode(node, path, depth) {
   const pk = pathKey(path);
-  const id = nodeId(path);
+  const id = displayId(path);
   const leaf = isLeaf(node);
   const status = deriveStatus(node);
   const isOpen = openNodes.has(pk);
@@ -617,15 +677,18 @@ function renderNode(node, path, depth) {
   const canExpand = hasChildren || hasDetails || hasDesc;
   const ps = JSON.stringify(path);
 
-  let badgeHtml;
-  if (leaf) {
-    badgeHtml = `<span class="badge ${status}" onclick="event.stopPropagation(); cycleAt([${path}])">${statusLabel}</span>`;
-  } else {
-    badgeHtml = `<span class="badge ${status}">${statusLabel}</span>`;
+  let badgeHtml = '';
+  if (status) {
+    if (leaf) {
+      badgeHtml = `<span class="badge ${status}" onclick="event.stopPropagation(); cycleAt([${path}])">${statusLabel}</span>`;
+    } else {
+      badgeHtml = `<span class="badge ${status}">${statusLabel}</span>`;
+    }
   }
 
   const actions = `<span class="node-actions">
     <button onclick="event.stopPropagation(); addChild([${path}])" title="Add child">+</button>
+    <button onclick="event.stopPropagation(); editDescription([${path}])" title="Edit description">&#9998;</button>
     <button class="del-btn" onclick="event.stopPropagation(); deleteNode([${path}])" title="Delete">&times;</button>
   </span>`;
 
@@ -643,12 +706,12 @@ function renderNode(node, path, depth) {
 
   const clickAction = hasChildren
     ? `toggleNode('${pk}')`
-    : hasDetails ? `toggleDetails('${pk}')` : '';
+    : (hasDetails || hasDesc) ? `toggleDetails('${pk}')` : '';
 
-  return `<div class="node depth-${depth}">
-    <div class="node-header focusable ${isOpen || detailOpen ? 'open' : ''}" data-pk="${pk}" data-fkey="h:${pk}" onclick="${clickAction}">
+  return `<div class="node depth-${depth}" data-path='${ps}'>
+    <div class="node-header focusable ${isOpen || detailOpen ? 'open' : ''}" data-pk="${pk}" data-fkey="h:${pk}" onclick="${clickAction}" draggable="true" data-path='${ps}'>
       ${canExpand ? `<span class="arrow">&#9654;</span>` : `<span class="arrow" style="visibility:hidden">&#9654;</span>`}
-      <span class="node-id">${id}</span>
+      ${node.icon ? `<span class="node-icon" data-edit="single" data-path='${ps}' data-field="icon">${node.icon}</span>` : `<span class="node-id">${id}</span>`}
       <span class="node-name" data-edit="single" data-path='${ps}' data-field="name">${escHtml(node.name)}</span>
       <span class="node-note" data-edit="single" data-path='${ps}' data-field="note">${node.note ? escHtml(node.note) : ''}</span>
       ${actions}
@@ -687,6 +750,168 @@ document.getElementById('expand-all').addEventListener('click', () => {
 document.getElementById('collapse-all').addEventListener('click', () => {
   openNodes.clear(); openDetailsSet.clear(); render();
 });
+
+// --- Drag-and-drop ---
+function isDescendantOrSelf(targetPath, sourcePath) {
+  if (targetPath.length < sourcePath.length) return false;
+  return sourcePath.every((v, i) => targetPath[i] === v);
+}
+
+function showDropLine(yPosition) {
+  const el = document.getElementById('drop-indicator');
+  el.style.display = 'block';
+  el.style.top = (yPosition + window.scrollY) + 'px';
+}
+
+function clearDropVisuals() {
+  document.getElementById('drop-indicator').style.display = 'none';
+  document.querySelectorAll('.drag-over-parent').forEach(el => el.classList.remove('drag-over-parent'));
+  document.querySelectorAll('[data-drop-position]').forEach(el => delete el.dataset.dropPosition);
+}
+
+function stampOpenState() {
+  function walk(node, path) {
+    const pk = pathKey(path);
+    if (openNodes.has(pk)) node._open = true;
+    if (openDetailsSet.has(pk)) node._detailOpen = true;
+    if (node.children) node.children.forEach((c, i) => walk(c, [...path, i]));
+  }
+  data.children.forEach((c, i) => walk(c, [i]));
+}
+
+function restoreOpenState() {
+  openNodes.clear();
+  openDetailsSet.clear();
+  function walk(node, path) {
+    const pk = pathKey(path);
+    if (node._open) { openNodes.add(pk); delete node._open; }
+    if (node._detailOpen) { openDetailsSet.add(pk); delete node._detailOpen; }
+    if (node.children) node.children.forEach((c, i) => walk(c, [...path, i]));
+  }
+  data.children.forEach((c, i) => walk(c, [i]));
+}
+
+function adjustPathAfterRemoval(targetPath, srcPath, srcIdx) {
+  const srcParentPath = srcPath.slice(0, -1);
+  if (srcParentPath.length >= targetPath.length) return targetPath;
+  const sameParent = srcParentPath.every((v, i) => targetPath[i] === v);
+  if (!sameParent) return targetPath;
+  const d = srcParentPath.length;
+  if (targetPath[d] > srcIdx) {
+    const adjusted = [...targetPath];
+    adjusted[d]--;
+    return adjusted;
+  }
+  return targetPath;
+}
+
+function performMove(srcPath, tgtPath, position) {
+  stampOpenState();
+
+  const srcParentPath = srcPath.slice(0, -1);
+  const srcIdx = srcPath[srcPath.length - 1];
+  const srcParent = srcParentPath.length === 0 ? data : nodeAt(srcParentPath);
+  const [movedNode] = srcParent.children.splice(srcIdx, 1);
+
+  if (srcParent.children.length === 0 && srcParent !== data) {
+    delete srcParent.children;
+    if (!srcParent.status) srcParent.status = undefined;
+  }
+
+  if (position === 'into') {
+    const adjPath = adjustPathAfterRemoval(tgtPath, srcPath, srcIdx);
+    const tgtNode = nodeAt(adjPath);
+    if (!tgtNode.children) tgtNode.children = [];
+    tgtNode.children.push(movedNode);
+    tgtNode._open = true;
+  } else {
+    const adjPath = adjustPathAfterRemoval(tgtPath, srcPath, srcIdx);
+    const tgtParentPath = adjPath.slice(0, -1);
+    let tgtIdx = adjPath[adjPath.length - 1];
+    if (position === 'after') tgtIdx++;
+    const tgtParent = tgtParentPath.length === 0 ? data : nodeAt(tgtParentPath);
+    tgtParent.children.splice(tgtIdx, 0, movedNode);
+  }
+
+  restoreOpenState();
+  markDirty();
+  render();
+}
+
+(function setupDragHandlers() {
+  const tree = document.getElementById('tree');
+
+  tree.addEventListener('dragstart', e => {
+    const header = e.target.closest('.node-header');
+    if (!header || editing) { e.preventDefault(); return; }
+    if (e.target.closest('.badge') || e.target.closest('.node-actions') || e.target.closest('.node-icon')) {
+      e.preventDefault(); return;
+    }
+    dragSourcePath = JSON.parse(header.dataset.path);
+    header.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+  });
+
+  tree.addEventListener('dragend', () => {
+    dragSourcePath = null;
+    clearDropVisuals();
+    document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+  });
+
+  tree.addEventListener('dragover', e => {
+    if (!dragSourcePath) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const header = e.target.closest('.node-header');
+    if (!header) { clearDropVisuals(); return; }
+
+    const targetPath = JSON.parse(header.dataset.path);
+    if (isDescendantOrSelf(targetPath, dragSourcePath)) { clearDropVisuals(); return; }
+
+    const rect = header.getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / rect.height;
+    const nodeEl = header.closest('.node');
+
+    clearDropVisuals();
+
+    if (ratio < 0.25) {
+      showDropLine(rect.top);
+      nodeEl.dataset.dropPosition = 'before';
+    } else if (ratio > 0.75) {
+      showDropLine(rect.bottom);
+      nodeEl.dataset.dropPosition = 'after';
+    } else {
+      nodeEl.classList.add('drag-over-parent');
+      nodeEl.dataset.dropPosition = 'into';
+    }
+  });
+
+  tree.addEventListener('dragleave', e => {
+    if (!tree.contains(e.relatedTarget)) clearDropVisuals();
+  });
+
+  tree.addEventListener('drop', e => {
+    e.preventDefault();
+    if (!dragSourcePath) return;
+
+    const header = e.target.closest('.node-header');
+    if (!header) { clearDropVisuals(); return; }
+
+    const targetPath = JSON.parse(header.dataset.path);
+    const nodeEl = header.closest('.node');
+    const position = nodeEl.dataset.dropPosition;
+
+    if (!position || isDescendantOrSelf(targetPath, dragSourcePath)) {
+      clearDropVisuals(); return;
+    }
+
+    performMove(dragSourcePath, targetPath, position);
+    dragSourcePath = null;
+    clearDropVisuals();
+  });
+})();
 
 // --- Vim navigation ---
 (function vimMode() {
@@ -754,7 +979,7 @@ document.getElementById('collapse-all').addEventListener('click', () => {
         const node = nodeAt(fi.path);
         if (!isLeaf(node)) {
           if (!openNodes.has(fi.pk)) { openNodes.add(fi.pk); renderTree(); highlight(); focus(focusIdx); }
-        } else if (node.details) {
+        } else if (node.details || node.description) {
           if (!openDetailsSet.has(fi.pk)) { openDetailsSet.add(fi.pk); renderTree(); highlight(); focus(focusIdx); }
         }
         break;
@@ -773,7 +998,7 @@ document.getElementById('collapse-all').addEventListener('click', () => {
         const node = nodeAt(fi.path);
         if (!isLeaf(node) && openNodes.has(fi.pk)) {
           openNodes.delete(fi.pk); renderTree(); highlight(); focus(focusIdx);
-        } else if (isLeaf(node) && node.details && openDetailsSet.has(fi.pk)) {
+        } else if (isLeaf(node) && (node.details || node.description) && openDetailsSet.has(fi.pk)) {
           openDetailsSet.delete(fi.pk); renderTree(); highlight(); focus(focusIdx);
         } else if (fi.path.length > 1) {
           const parentKey = 'h:' + pathKey(fi.path.slice(0, -1));
@@ -795,7 +1020,7 @@ document.getElementById('collapse-all').addEventListener('click', () => {
         if (!fi || fi.type !== 'header') break;
         const node = nodeAt(fi.path);
         if (!isLeaf(node)) { toggleNode(fi.pk); focus(focusIdx); }
-        else if (node.details) { toggleDetails(fi.pk); focus(focusIdx); }
+        else if (node.details || node.description) { toggleDetails(fi.pk); focus(focusIdx); }
         break;
       }
       case 'g': pending = 'g'; break;

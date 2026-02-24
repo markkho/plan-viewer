@@ -15,6 +15,7 @@
     {
       "name": "Research & Design",
       "short": "Research",
+      "icon": "\ud83d\udd2c",
       "description": "Gather requirements, explore existing solutions, and design the architecture.",
       "children": [
         {
@@ -42,6 +43,7 @@
     {
       "name": "Core Implementation",
       "short": "Core",
+      "icon": "\u2699\ufe0f",
       "description": [
         "Build the main components of the system.",
         "",
@@ -136,6 +138,56 @@
           "name": "Publish v1.0",
           "status": "deferred",
           "note": "blocked on testing"
+        }
+      ]
+    },
+    {
+      "name": "Notes & Research",
+      "short": "Notes",
+      "icon": "\ud83d\udcdd",
+      "description": "Reference material and design notes — no status tracking.",
+      "children": [
+        {
+          "name": "Architecture decisions",
+          "description": [
+            "**ADR-1**: Chose streaming over batch for the ingestion layer.",
+            "Rationale: lower latency, better resource utilization under bursty load.",
+            "",
+            "**ADR-2**: Single-threaded processing engine with async I/O.",
+            "We can always shard later; premature parallelism adds complexity."
+          ]
+        },
+        {
+          "name": "Useful references",
+          "children": [
+            {
+              "name": "Smith et al. — Baseline approach",
+              "description": "Core algorithm we adapted. See Section 3 for the recurrence relation: $T(n) = 2T(n/2) + O(n)$."
+            },
+            {
+              "name": "Jones & Lee — Improved algorithm",
+              "description": "Key insight: skip redundant comparisons using a bloom filter. Reduces average case to $O(n \\log \\log n)$."
+            }
+          ]
+        },
+        {
+          "name": "Algorithm comparison",
+          "description": [
+            "| Approach | Time | Space | Notes |",
+            "|----------|------|-------|-------|",
+            "| Brute force | $O(n^2)$ | $O(1)$ | Too slow for $n > 10^4$ |",
+            "| Divide & conquer | $O(n \\log n)$ | $O(n)$ | Our current impl |",
+            "| Bloom filter | $O(n \\log \\log n)$ | $O(n)$ | Best average case |",
+            "| Streaming | $O(n)$ amortized | $O(\\sqrt{n})$ | Requires sorted input |"
+          ]
+        },
+        {
+          "name": "Open questions",
+          "details": [
+            "- How do we handle schema evolution in the ingestion pipeline?",
+            "- Should the output formatter support plugins?",
+            "- What's the right backpressure strategy for streaming mode?"
+          ]
         }
       ]
     }
