@@ -5,27 +5,31 @@ A VS Code extension that renders `PLAN.json` and `*.plan.json` files as interact
 ## Features
 
 - **Native editor tab** — plan files open directly in the viewer (right-click → "Open With" → "Text Editor" for raw JSON)
-- **Hierarchical tree** with collapsible sections and sticky scroll headers
-- **Status tracking** — click badges to cycle leaf nodes through pending → in progress → complete
+- **Hierarchical tree** with collapsible sections, sticky scroll headers, and hierarchical numbering
+- **Status tracking** — click badges to cycle leaf nodes through note → pending → in progress → complete
 - **Inline editing** — double-click any text to edit; multiline fields use CodeMirror with vim keybindings
 - **Markdown rendering** with LaTeX math (KaTeX) and syntax-highlighted code blocks
 - **Vim navigation** — `j`/`k` to move, `h`/`l` to collapse/expand, `space` to cycle status, `i` to edit
-- **Progress overview** — summary cards with progress bars for top-level phases
-- **Next step indicator** — highlights the current in-progress or next pending task
+- **Drag-and-drop** reordering of nodes
+- **Auto-save** with Ctrl+Z / Cmd+Z undo support
+- **Icons** — default emoji icons based on node type/status, customizable via double-click emoji picker
+- **Deadlines** — due dates with color-coded labels (gray, yellow within 3 days, red overdue)
 - **Dark/light theme** — follows VS Code's theme automatically
 
 ## File Format
 
-A plan file is a JSON object with this structure:
+Full JSON Schema: https://raw.githubusercontent.com/markkho/plan-viewer/main/schema.json
+
+Add a `$schema` reference for editor validation and agent discoverability:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/markkho/plan-viewer/main/schema.json",
   "title": "Plan Title",
-  "motivation": ["Optional array of", "markdown paragraphs"],
+  "subtitle": "Optional subtitle",
   "children": [
     {
       "name": "Phase 1",
-      "short": "Short label for overview card",
       "description": "Markdown description shown when expanded",
       "children": [
         {
@@ -45,15 +49,18 @@ A plan file is a JSON object with this structure:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | yes | Node title |
-| `status` | string | leaf only | `"pending"`, `"in_progress"`, `"complete"`, or `"deferred"` |
-| `short` | string | no | Short label for overview cards (falls back to `name`) |
+| `status` | string | leaf only | `"pending"`, `"in_progress"`, `"complete"`, or `"deferred"`. Omit for plain notes. |
 | `description` | string or string[] | no | Markdown content shown when node is expanded |
 | `details` | string or string[] | no | Expandable details (toggle with `o` or click) |
-| `note` | string | no | Short italic note shown in the header row |
+| `note` | string | no | Short note shown in the header row |
+| `icon` | string | no | Emoji displayed before the name. Defaults based on node type/status. |
+| `deadline` | string | no | Due date in `YYYY-MM-DD` format. Shown as a colored label. |
+| `created` | string | no | ISO 8601 timestamp, auto-set when created via the UI |
+| `modified` | string | no | ISO 8601 timestamp, auto-updated on edits |
 | `children` | array | no | Sub-nodes (presence makes this a branch node) |
 
 **Status rules:**
-- Leaf nodes (no children) have an explicit `status`
+- Leaf nodes (no children) have an explicit `status`, or omit it to be a plain note
 - Branch nodes derive status from children: all complete → complete, any in progress/complete → in progress, otherwise pending
 - `"deferred"` nodes are excluded from progress counts
 

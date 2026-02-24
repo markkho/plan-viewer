@@ -88,6 +88,53 @@ function activate(context) {
     })
   );
 
+  // Create a new plan file
+  context.subscriptions.push(
+    vscode.commands.registerCommand('planViewer.create', async () => {
+      const name = await vscode.window.showInputBox({
+        prompt: 'Plan file name',
+        value: 'PLAN.json',
+        validateInput: v => {
+          if (!v) return 'Name is required';
+          if (!v.endsWith('.plan.json') && v !== 'PLAN.json')
+            return 'Must be PLAN.json or *.plan.json';
+          return null;
+        },
+      });
+      if (!name) return;
+
+      const folders = vscode.workspace.workspaceFolders;
+      if (!folders || folders.length === 0) {
+        vscode.window.showErrorMessage('Open a folder first.');
+        return;
+      }
+
+      const folder = folders.length === 1
+        ? folders[0]
+        : await vscode.window.showWorkspaceFolderPick({ placeHolder: 'Select workspace folder' });
+      if (!folder) return;
+
+      const uri = vscode.Uri.joinPath(folder.uri, name);
+      try {
+        await vscode.workspace.fs.stat(uri);
+        // File exists — just open it
+        await vscode.commands.executeCommand('vscode.openWith', uri, 'planViewer.editor');
+        return;
+      } catch {
+        // File doesn't exist — create it
+      }
+
+      const template = {
+        $schema: 'https://raw.githubusercontent.com/markkho/plan-viewer/main/schema.json',
+        title: name.replace(/\.plan\.json$|\.json$/, ''),
+        children: [],
+      };
+      const content = Buffer.from(JSON.stringify(template, null, 2) + '\n', 'utf-8');
+      await vscode.workspace.fs.writeFile(uri, content);
+      await vscode.commands.executeCommand('vscode.openWith', uri, 'planViewer.editor');
+    })
+  );
+
   // Convenience command: find a plan file and open it with the custom editor
   context.subscriptions.push(
     vscode.commands.registerCommand('planViewer.open', async () => {

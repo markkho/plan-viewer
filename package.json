@@ -15,6 +15,10 @@
       {
         "command": "planViewer.open",
         "title": "Plan: Open Tracker"
+      },
+      {
+        "command": "planViewer.create",
+        "title": "Plan: New Plan File"
       }
     ],
     "customEditors": [
