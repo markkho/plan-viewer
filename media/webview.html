@@ -63,7 +63,11 @@
   .node-header .arrow { font-size: 0.7em; transition: transform 0.2s; color: var(--gray); min-width: 12px; }
   .node-header.open .arrow { transform: rotate(90deg); }
   .node-header .node-id { font-size: 0.72em; color: var(--gray); opacity: 0.5; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 1.5em; }
-  .node-header .node-icon { font-size: 1.1em; cursor: text; }
+  .node-header .node-icon { font-size: 1.1em; cursor: pointer; }
+  .emoji-picker { position: fixed; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px; z-index: 300; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); width: 210px; }
+  .emoji-opt { font-size: 1.2em; padding: 4px; text-align: center; cursor: pointer; border-radius: 4px; line-height: 1.4; }
+  .emoji-opt:hover { background: var(--hover); }
+  .emoji-clear { font-size: 1em; color: var(--gray); }
   .node-header .node-name { font-weight: 500; flex: 1; font-size: 0.9em; }
   .node-header .node-note { font-size: 0.75em; color: var(--gray); font-style: italic; max-width: 220px; text-align: right; }
   .node-header .node-date { font-size: 0.7em; color: var(--gray); opacity: 0.5; white-space: nowrap; }
@@ -132,10 +136,6 @@
   .focusable.focused { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 6px; }
   /* Settings */
   .top-bar { position: fixed; top: 12px; right: 12px; display: flex; align-items: center; gap: 6px; z-index: 100; }
-  .top-bar .dirty-indicator { font-size: 0.75em; color: var(--yellow); }
-  .top-bar .saved-msg { font-size: 0.75em; color: var(--green); opacity: 0; transition: opacity 0.3s; }
-  .top-bar .saved-msg.show { opacity: 1; }
-  .top-bar .btn { padding: 4px 10px; font-size: 0.75em; border-radius: 5px; }
   .settings-toggle { background: var(--card); border: 1px solid var(--border); border-radius: 6px; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1em; color: var(--gray); }
   .settings-toggle:hover { background: var(--hover); color: var(--fg); }
   .settings-panel { position: fixed; top: 52px; right: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; z-index: 100; min-width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; }
@@ -172,10 +172,6 @@
 <body>
 
 <div class="top-bar">
-  <span class="saved-msg" id="saved-msg">Saved!</span>
-  <span class="dirty-indicator" id="dirty-msg"></span>
-  <button class="btn primary" id="save-btn">Save</button>
-  <button class="btn" id="revert-btn">Revert</button>
   <div class="settings-toggle" id="settings-toggle" title="Settings">&#9881;</div>
 </div>
 <div class="settings-panel" id="settings-panel">
@@ -201,6 +197,7 @@
   <h1 id="page-title"></h1>
   <p class="subtitle">Double-click text to edit. Click badges to cycle status.</p>
   <div id="tree"></div>
+  <button class="add-child-btn" onclick="addChild([])">+ Add step</button>
   <div class="toolbar">
     <span style="flex:1"></span>
     <button class="btn" id="expand-all">Expand all</button>
@@ -298,9 +295,24 @@ function unwrap(v) {
   return out.join('\n');
 }
 
+const undoStack = [];
+const MAX_UNDO = 50;
+
+function snapshot() {
+  undoStack.push(JSON.stringify(data));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  data = JSON.parse(undoStack.pop());
+  vscode.postMessage({ type: 'save', data });
+  render();
+}
+
 function markDirty() {
-  dirty = true;
-  document.getElementById('dirty-msg').textContent = 'Unsaved changes';
+  dirty = false;
+  vscode.postMessage({ type: 'save', data });
 }
 
 function touchNode(node, isNew) {
@@ -359,10 +371,6 @@ window.addEventListener('message', e => {
     if (!dirty && !editing) render();
   } else if (msg.type === 'saved') {
     dirty = false;
-    document.getElementById('dirty-msg').textContent = '';
-    const el = document.getElementById('saved-msg');
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 2000);
   }
 });
 
@@ -557,6 +565,10 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     vscode.postMessage({ type: 'save', data });
   }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !editing) {
+    e.preventDefault();
+    undo();
+  }
 });
 
 function autoOpen(node, path) {
@@ -566,6 +578,7 @@ function autoOpen(node, path) {
 
 function cycleLeafStatus(node) {
   if (!isLeaf(node) || node.status === 'deferred') return;
+  snapshot();
   if (!node.status) {
     node.status = 'pending';
   } else {
@@ -592,6 +605,7 @@ function cycleLeafStatus(node) {
 // --- Inline editing ---
 function startEdit(el, path, field, multiline, vimNormal) {
   if (editing) return;
+  snapshot();
   editing = true;
   const node = nodeAt(path);
   const raw = multiline ? unwrap(node[field] || '') : txt(node[field] || '');
@@ -685,6 +699,7 @@ function startEdit(el, path, field, multiline, vimNormal) {
 }
 
 function addChild(path) {
+  snapshot();
   const parent = path.length === 0 ? data : nodeAt(path);
   if (!parent.children) parent.children = [];
   const newNode = {name: 'New node'};
@@ -732,6 +747,7 @@ async function deleteNode(path) {
   const node = nodeAt(path);
   const name = node.name || 'this node';
   if (!await showConfirm(`Delete <strong>"${name}"</strong>?`)) return;
+  snapshot();
   const parentPath = path.slice(0, -1);
   const idx = path[path.length - 1];
   const parent = parentPath.length === 0 ? data : nodeAt(parentPath);
@@ -781,9 +797,62 @@ function highlight() {
   }
 }
 
+function defaultIcon(node, depth) {
+  if (!isLeaf(node)) return depth === 0 ? '📂' : '📁';
+  if (!node.status) return '📝';
+  if (node.status === 'complete') return '✅';
+  if (node.status === 'in_progress') return '🔨';
+  if (node.status === 'deferred') return '⏸️';
+  return '📌';
+}
+
+const EMOJI_PALETTE = [
+  '📂','📁','📝','📌','✅','🔨','⏸️','🎯','🔬','⚙️','🧪','🐛',
+  '🚀','💡','📊','🔧','📦','🔒','🌐','📈','🎨','🧩','⚡','🔥',
+  '💎','🏗️','📋','🗂️','💬','📎','🔗','🏷️','⭐','❗','❓','🛠️',
+];
+
+function showEmojiPicker(el, path) {
+  if (editing) return;
+  snapshot();
+  editing = true;
+  const node = nodeAt(path);
+  const rect = el.getBoundingClientRect();
+  const picker = document.createElement('div');
+  picker.className = 'emoji-picker';
+  picker.innerHTML = EMOJI_PALETTE.map(e =>
+    `<span class="emoji-opt">${e}</span>`
+  ).join('') + '<span class="emoji-opt emoji-clear" title="Remove icon">&times;</span>';
+  document.body.appendChild(picker);
+  // Position below icon, flip up if near bottom
+  let top = rect.bottom + 4;
+  if (top + 220 > window.innerHeight) top = rect.top - 220;
+  picker.style.top = top + 'px';
+  picker.style.left = Math.max(4, rect.left) + 'px';
+  picker.querySelectorAll('.emoji-opt').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      editing = false;
+      const val = opt.classList.contains('emoji-clear') ? undefined : opt.textContent;
+      if (val !== node.icon) { node.icon = val; touchNode(node); markDirty(); }
+      picker.remove();
+      render();
+    });
+  });
+  const close = (e) => {
+    if (picker.contains(e.target)) return;
+    editing = false;
+    picker.remove();
+    render();
+    document.removeEventListener('click', close, true);
+  };
+  setTimeout(() => document.addEventListener('click', close, true), 0);
+}
+
 // --- Render ---
 function editRootField(el, field, placeholder) {
   if (editing) return;
+  snapshot();
   editing = true;
   const raw = data[field] || '';
   const input = document.createElement('input');
@@ -843,8 +912,12 @@ function renderTree() {
       e.stopPropagation();
       const path = JSON.parse(el.dataset.path);
       const field = el.dataset.field;
-      const multi = el.dataset.edit === 'multi';
-      startEdit(el, path, field, multi);
+      if (el.dataset.edit === 'icon') {
+        showEmojiPicker(el, path);
+      } else {
+        const multi = el.dataset.edit === 'multi';
+        startEdit(el, path, field, multi);
+      }
     });
   });
   if (vimFocusKey) {
@@ -906,10 +979,10 @@ function renderNode(node, path, depth) {
     : (hasDetails || hasDesc) ? `toggleDetails('${pk}')` : '';
 
   return `<div class="node depth-${depth}" data-path='${ps}'>
-    <div class="node-header focusable ${isOpen || detailOpen ? 'open' : ''}" data-pk="${pk}" data-fkey="h:${pk}" onclick="${clickAction}" draggable="true" data-path='${ps}'>
+    <div class="node-header focusable ${isOpen || detailOpen ? 'open' : ''}" data-pk="${pk}" data-fkey="h:${pk}" onclick="if(!event.target.closest('[data-edit]')){${clickAction}}" draggable="true" data-path='${ps}'>
       ${canExpand ? `<span class="arrow">&#9654;</span>` : `<span class="arrow" style="visibility:hidden">&#9654;</span>`}
       <span class="node-id">${path.map(i => i + 1).join('.')}</span>
-      ${node.icon ? `<span class="node-icon" data-edit="single" data-path='${ps}' data-field="icon">${node.icon}</span>` : ''}
+      <span class="node-icon" data-edit="icon" data-path='${ps}' data-field="icon">${node.icon || defaultIcon(node, depth)}</span>
       <span class="node-name" data-edit="single" data-path='${ps}' data-field="name">${escHtml(node.name)}</span>
       <span class="node-note" data-edit="single" data-path='${ps}' data-field="note">${node.note ? escHtml(node.note) : ''}</span>
       ${deadlineHtml}
@@ -922,20 +995,6 @@ function renderNode(node, path, depth) {
 }
 
 function cycleAt(path) { cycleLeafStatus(nodeAt(path)); }
-
-// --- Save (writes to disk via extension) ---
-document.getElementById('save-btn').addEventListener('click', () => {
-  vscode.postMessage({ type: 'save', data });
-});
-
-document.getElementById('revert-btn').addEventListener('click', async () => {
-  if (!dirty) return;
-  if (!await showConfirm('Discard unsaved changes and revert to the last saved version?')) return;
-  dirty = false;
-  editing = false;
-  document.getElementById('dirty-msg').textContent = '';
-  vscode.postMessage({ type: 'revert' });
-});
 
 document.getElementById('expand-all').addEventListener('click', () => {
   function expandAll(node, path) {
@@ -1006,6 +1065,7 @@ function adjustPathAfterRemoval(targetPath, srcPath, srcIdx) {
 }
 
 function performMove(srcPath, tgtPath, position) {
+  snapshot();
   stampOpenState();
 
   const srcParentPath = srcPath.slice(0, -1);

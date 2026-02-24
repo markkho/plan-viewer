@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/plan-viewer/schema.json",
+  "title": "Plan",
+  "description": "A hierarchical plan/task tracker used by the Plan Viewer VS Code extension. Files should be named PLAN.json or *.plan.json.",
+  "type": "object",
+  "required": ["children"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Display title shown at the top of the plan."
+    },
+    "subtitle": {
+      "type": "string",
+      "description": "Subtitle shown below the title."
+    },
+    "children": {
+      "type": "array",
+      "description": "Top-level nodes in the plan.",
+      "items": { "$ref": "#/$defs/node" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "node": {
+      "type": "object",
+      "description": "A single node in the plan tree. Nodes with children are branches (status derived from children). Nodes without children are leaves. Nodes without a status field are plain notes.",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name of the node."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_progress", "complete", "deferred"],
+          "description": "Task status. Only meaningful on leaf nodes — branch nodes derive status from their children. Omit for plain notes."
+        },
+        "description": {
+          "$ref": "#/$defs/markdownText",
+          "description": "Markdown body shown when the node is expanded. Supports fenced code blocks, LaTeX ($...$, $$...$$), and tables."
+        },
+        "details": {
+          "$ref": "#/$defs/markdownText",
+          "description": "Additional markdown content hidden behind a disclosure toggle."
+        },
+        "note": {
+          "type": "string",
+          "description": "Short inline annotation shown in the node header (e.g. '3 papers reviewed', 'approved 2/15')."
+        },
+        "icon": {
+          "type": "string",
+          "description": "Emoji or single character displayed before the node name. If omitted, a default icon is derived from the node type and status."
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date",
+          "description": "Due date in YYYY-MM-DD format. Shown as a colored label: gray (normal), yellow (due within 3 days), red (overdue)."
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp. Automatically set when the node is first created via the UI."
+        },
+        "modified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp. Automatically updated whenever the node is edited via the UI."
+        },
+        "children": {
+          "type": "array",
+          "description": "Child nodes. Presence of this field makes the node a branch whose status is derived from its children.",
+          "items": { "$ref": "#/$defs/node" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "markdownText": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Array of strings joined with newlines for rendering."
+        }
+      ]
+    }
+  }
+}
