@@ -77,6 +77,7 @@
   .node-header .node-icon { font-size: 1.3em; min-width: 36px; cursor: text; text-align: center; }
   .node-header .node-name { font-weight: 500; flex: 1; font-size: 0.9em; }
   .node-header .node-note { font-size: 0.75em; color: var(--gray); font-style: italic; max-width: 220px; text-align: right; }
+  .node-header .node-date { font-size: 0.7em; color: var(--gray); opacity: 0.5; white-space: nowrap; }
   .node-header .badge { font-size: 0.72em; padding: 2px 8px; border-radius: 4px; font-weight: 600; cursor: pointer; user-select: none; border: none; transition: opacity 0.15s; white-space: nowrap; }
   .node-header .badge:hover { opacity: 0.8; }
   .badge.complete { background: var(--green-bg); color: var(--green); }
@@ -154,6 +155,17 @@
   .settings-row .val { font-family: monospace; font-size: 0.9em; min-width: 32px; text-align: right; }
   .vim-help { position: fixed; bottom: 16px; right: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.75em; color: var(--gray); font-family: monospace; line-height: 1.8; opacity: 0.7; }
   .vim-help kbd { background: var(--border); padding: 1px 5px; border-radius: 3px; font-size: 0.95em; }
+  /* Search overlay */
+  .search-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 100; display: flex; justify-content: center; padding-top: 80px; }
+  .search-box { width: 500px; max-width: 90vw; max-height: 60vh; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; }
+  .search-input { padding: 12px 16px; font: inherit; font-size: 1em; background: transparent; color: var(--fg); border: none; border-bottom: 1px solid var(--border); outline: none; }
+  .search-results { overflow-y: auto; flex: 1; }
+  .search-item { padding: 8px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.88em; }
+  .search-item:hover, .search-item.active { background: var(--hover); }
+  .search-item .search-path { color: var(--gray); font-size: 0.82em; margin-left: auto; }
+  .search-item .search-icon { min-width: 20px; text-align: center; }
+  .search-item .search-date { color: var(--gray); font-size: 0.82em; opacity: 0.6; white-space: nowrap; }
+  .search-item.create { color: var(--blue); font-style: italic; border-top: 1px solid var(--border); }
   /* Confirm dialog */
   .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: center; justify-content: center; }
   .confirm-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; min-width: 280px; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
@@ -285,6 +297,28 @@ function markDirty() {
   document.getElementById('dirty-msg').textContent = 'Unsaved changes';
 }
 
+function touchNode(node, isNew) {
+  const now = new Date().toISOString();
+  if (isNew) node.created = now;
+  node.modified = now;
+}
+
+function relTime(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+}
+
 function nodeAt(path) {
   let node = data;
   for (const i of path) node = node.children[i];
@@ -368,6 +402,163 @@ function getNextStep() {
   return null;
 }
 
+// --- Search ---
+function flattenNodes(node, path, ancestors) {
+  const results = [];
+  if (path.length > 0) {
+    results.push({ node, path: [...path], ancestors: [...ancestors], name: node.name });
+  }
+  if (node.children) {
+    const label = node.name || node.title || '';
+    node.children.forEach((c, i) => {
+      results.push(...flattenNodes(c, [...path, i], path.length > 0 ? [...ancestors, label] : ancestors));
+    });
+  }
+  return results;
+}
+
+function searchNodes(query) {
+  if (!data) return [];
+  const all = flattenNodes(data, [], []);
+  const isTodo = item => hasAnyStatus(item.node);
+  const modTime = item => item.node.modified ? new Date(item.node.modified).getTime() : 0;
+  if (!query.trim()) {
+    // No query: todos first, then notes, each sorted by most recently modified
+    return all
+      .sort((a, b) => {
+        const aTodo = isTodo(a), bTodo = isTodo(b);
+        if (aTodo !== bTodo) return aTodo ? -1 : 1;
+        return modTime(b) - modTime(a);
+      })
+      .slice(0, 30);
+  }
+  const q = query.toLowerCase();
+  return all
+    .map(item => {
+      const name = item.name.toLowerCase();
+      const desc = (typeof item.node.description === 'string' ? item.node.description : Array.isArray(item.node.description) ? item.node.description.join(' ') : '').toLowerCase();
+      let score = 0;
+      if (name.startsWith(q)) score = 3;
+      else if (name.includes(q)) score = 2;
+      else if (desc.includes(q)) score = 1;
+      // Boost todos over notes at same match level
+      if (score > 0 && isTodo(item)) score += 0.5;
+      return { ...item, score };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score || modTime(b) - modTime(a));
+}
+
+let searchOpen = false;
+
+function navigateToNode(path) {
+  for (let i = 1; i < path.length; i++) {
+    openNodes.add(pathKey(path.slice(0, i)));
+  }
+  const node = nodeAt(path);
+  if (isLeaf(node) && (node.description || node.details)) {
+    openDetailsSet.add(pathKey(path));
+  }
+  renderTree(); highlight();
+  const pk = pathKey(path);
+  vimFocusKey = 'h:' + pk;
+  const el = document.querySelector(`[data-fkey="h:${pk}"]`);
+  if (el) {
+    el.classList.add('focused');
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
+function openSearch() {
+  if (editing || searchOpen) return;
+  searchOpen = true;
+  const overlay = document.createElement('div');
+  overlay.className = 'search-overlay';
+  overlay.innerHTML = `<div class="search-box">
+    <input class="search-input" placeholder="Search nodes..." autofocus>
+    <div class="search-results"></div>
+  </div>`;
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector('.search-input');
+  const resultsEl = overlay.querySelector('.search-results');
+  let activeIdx = 0;
+  let results = [];
+
+  function updateResults() {
+    results = searchNodes(input.value);
+    const q = input.value.trim();
+    resultsEl.innerHTML = results.map((r, i) => {
+      const icon = r.node.icon || displayId(r.path);
+      const breadcrumb = r.ancestors.length ? r.ancestors.join(' \u203a ') : '';
+      const dateStr = r.node.modified ? relTime(r.node.modified) : '';
+      return `<div class="search-item ${i === activeIdx ? 'active' : ''}" data-idx="${i}">
+        <span class="search-icon">${icon}</span>
+        <span>${escHtml(r.name)}</span>
+        ${breadcrumb ? `<span class="search-path">${escHtml(breadcrumb)}</span>` : ''}
+        ${dateStr ? `<span class="search-date">${dateStr}</span>` : ''}
+      </div>`;
+    }).join('')
+    + (q ? `<div class="search-item create ${activeIdx === results.length ? 'active' : ''}" data-idx="${results.length}">+ Create &ldquo;${escHtml(q)}&rdquo;</div>` : '');
+
+    resultsEl.querySelectorAll('.search-item').forEach(el => {
+      el.addEventListener('click', () => selectItem(parseInt(el.dataset.idx)));
+    });
+    const activeEl = resultsEl.querySelector('.search-item.active');
+    if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+  }
+
+  function selectItem(idx) {
+    if (idx === results.length) {
+      const newNode = { name: input.value.trim() };
+      touchNode(newNode, true);
+      data.children.push(newNode);
+      markDirty();
+      const newPath = [data.children.length - 1];
+      closeSearch();
+      render();
+      navigateToNode(newPath);
+    } else if (results[idx]) {
+      const path = results[idx].path;
+      closeSearch();
+      navigateToNode(path);
+    }
+  }
+
+  function closeSearch() {
+    searchOpen = false;
+    overlay.remove();
+  }
+
+  input.addEventListener('input', () => { activeIdx = 0; updateResults(); });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); closeSearch(); return; }
+    if (e.key === 'ArrowDown' || (e.key === 'j' && e.ctrlKey)) {
+      e.preventDefault();
+      const max = results.length + (input.value.trim() ? 1 : 0);
+      activeIdx = Math.min(activeIdx + 1, max - 1);
+      updateResults(); return;
+    }
+    if (e.key === 'ArrowUp' || (e.key === 'k' && e.ctrlKey)) {
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, 0);
+      updateResults(); return;
+    }
+    if (e.key === 'Enter') { e.preventDefault(); selectItem(activeIdx); return; }
+  });
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSearch(); });
+  updateResults();
+  input.focus();
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'f' && !editing && !searchOpen) {
+    e.preventDefault();
+    openSearch();
+  }
+});
+
 function autoOpen(node, path) {
   if (deriveStatus(node) === 'in_progress' && !isLeaf(node)) openNodes.add(pathKey(path));
   if (node.children) node.children.forEach((c,i) => autoOpen(c, [...path, i]));
@@ -377,6 +568,7 @@ function cycleLeafStatus(node) {
   if (!isLeaf(node) || !node.status || node.status === 'deferred') return;
   const idx = STATUS_ORDER.indexOf(node.status);
   node.status = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+  touchNode(node);
   markDirty();
   render();
 }
@@ -411,7 +603,7 @@ function startEdit(el, path, field, multiline, vimNormal) {
       if (!editing) return;
       editing = false;
       const val = cm.getValue();
-      if (val !== raw) { node[field] = val ? val.split('\n') : undefined; markDirty(); }
+      if (val !== raw) { node[field] = val ? val.split('\n') : undefined; touchNode(node); markDirty(); }
       renderTree(); highlight();
     };
     cm._save = save;
@@ -453,7 +645,7 @@ function startEdit(el, path, field, multiline, vimNormal) {
       if (!editing) return;
       editing = false;
       const val = input.value.trim();
-      if (val !== raw) { node[field] = val || undefined; markDirty(); }
+      if (val !== raw) { node[field] = val || undefined; touchNode(node); markDirty(); }
       render();
     };
     input.addEventListener('blur', save);
@@ -487,7 +679,9 @@ function startEdit(el, path, field, multiline, vimNormal) {
 function addChild(path) {
   const parent = path.length === 0 ? data : nodeAt(path);
   if (!parent.children) parent.children = [];
-  parent.children.push({name: 'New step', status: 'pending'});
+  const newNode = {name: 'New step', status: 'pending'};
+  touchNode(newNode, true);
+  parent.children.push(newNode);
   const pk = pathKey(path);
   openNodes.add(pk);
   markDirty();
@@ -621,6 +815,7 @@ function renderOverview() {
   const el = document.getElementById('overview');
   if (!data.children.some(c => hasAnyStatus(c))) { el.innerHTML = ''; return; }
   el.innerHTML = data.children.map((p, i) => {
+    if (!hasAnyStatus(p)) return '';
     const {done, total} = countProgress(p);
     const pct = total > 0 ? (done / total * 100) : 0;
     const status = deriveStatus(p);
@@ -714,6 +909,7 @@ function renderNode(node, path, depth) {
       ${node.icon ? `<span class="node-icon" data-edit="single" data-path='${ps}' data-field="icon">${node.icon}</span>` : `<span class="node-id">${id}</span>`}
       <span class="node-name" data-edit="single" data-path='${ps}' data-field="name">${escHtml(node.name)}</span>
       <span class="node-note" data-edit="single" data-path='${ps}' data-field="note">${node.note ? escHtml(node.note) : ''}</span>
+      ${node.modified ? `<span class="node-date" title="${node.created ? 'Created: ' + new Date(node.created).toLocaleString() + '\n' : ''}Modified: ${new Date(node.modified).toLocaleString()}">${relTime(node.modified)}</span>` : ''}
       ${actions}
       ${badgeHtml}
     </div>
